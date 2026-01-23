@@ -1,0 +1,24 @@
+services:
+  # React Frontend (Helpdesk) - Conecta a GLPI en producción
+  helpdesk-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - VITE_GLPI_URL=${VITE_GLPI_URL:-https://glpi.entersys.mx}
+        - VITE_GLPI_APP_TOKEN=${VITE_GLPI_APP_TOKEN:-***GLPI_APP_TOKEN_REMOVED***}
+        - VITE_GLPI_USER_TOKEN=${VITE_GLPI_USER_TOKEN:-}
+    container_name: helpdesk-frontend
+    restart: unless-stopped
+    environment:
+      - VITE_GLPI_URL=${VITE_GLPI_URL:-https://glpi.entersys.mx}
+      - VITE_GLPI_APP_TOKEN=${VITE_GLPI_APP_TOKEN:-***GLPI_APP_TOKEN_REMOVED***}
+      - VITE_GLPI_USER_TOKEN=${VITE_GLPI_USER_TOKEN:-}
+    ports:
+      - "3000:80"
+    networks:
+      - helpdesk-network
+
+networks:
+  helpdesk-network:
+    driver: bridge
