@@ -3032,3 +3032,389 @@ body {
     align-items: flex-start;
   }
 }
+
+/* ========================================
+   ESTILOS PARA ARCHIVOS ADJUNTOS
+   ======================================== */
+
+/* Zona de drag and drop */
+.file-drop-zone {
+  border: 2px dashed var(--border-color);
+  border-radius: var(--radius);
+  padding: 20px;
+  text-align: center;
+  transition: all 0.3s ease;
+  background: var(--bg-tertiary);
+  margin: 12px 0;
+}
+
+.file-drop-zone:hover {
+  border-color: var(--primary);
+  background: rgba(37, 99, 235, 0.05);
+}
+
+.file-drop-zone.drag-active {
+  border-color: var(--primary);
+  background: rgba(37, 99, 235, 0.1);
+  transform: scale(1.01);
+}
+
+.file-drop-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+
+.file-drop-label svg {
+  color: var(--primary);
+}
+
+.file-drop-label span {
+  font-size: 14px;
+}
+
+.file-drop-label small {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Lista de archivos seleccionados */
+.attached-files-list {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius);
+  padding: 12px;
+  margin: 12px 0;
+}
+
+.attached-files-list h5 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--text-secondary);
+}
+
+.attached-file-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  margin-bottom: 6px;
+}
+
+.attached-file-item svg {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.attached-file-item .file-name {
+  flex: 1;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attached-file-item .file-size {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.remove-file-btn {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--danger);
+  border-radius: var(--radius-sm);
+  transition: background 0.2s;
+}
+
+.remove-file-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* Sección de documentos del ticket */
+.ticket-documents-section {
+  background: var(--bg-secondary);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 20px;
+  border: 1px solid var(--border-color);
+}
+
+.ticket-documents-section h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+
+.documents-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.document-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  transition: background 0.2s;
+}
+
+.document-item:hover {
+  background: var(--bg-primary);
+}
+
+.document-item .doc-icon {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.document-item .doc-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.document-item .doc-name {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.document-item .doc-meta {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.document-item .download-btn {
+  flex-shrink: 0;
+}
+
+/* Preview de imágenes (opcional) */
+.image-preview {
+  max-width: 100px;
+  max-height: 60px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+}
+
+/* ========================================
+   ESTILOS PARA SLA / MÉTRICAS
+   ======================================== */
+
+.sla-section {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.sla-section h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+
+.sla-item {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin-bottom: 10px;
+  border-left: 3px solid var(--border-color);
+}
+
+.sla-item.sla-success {
+  border-left-color: var(--success);
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.sla-item.sla-warning {
+  border-left-color: var(--warning);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.sla-item.sla-danger {
+  border-left-color: var(--danger);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.sla-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.sla-details {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sla-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.sla-badge.badge-success {
+  background: var(--success);
+  color: white;
+}
+
+.sla-badge.badge-warning {
+  background: var(--warning);
+  color: white;
+}
+
+.sla-badge.badge-danger {
+  background: var(--danger);
+  color: white;
+}
+
+.sla-badge.badge-gray {
+  background: var(--secondary);
+  color: white;
+}
+
+.sla-date {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.sla-remaining {
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border-color);
+}
+
+.sla-success .sla-remaining {
+  color: var(--success);
+}
+
+.sla-warning .sla-remaining {
+  color: var(--warning);
+}
+
+.sla-danger .sla-remaining {
+  color: var(--danger);
+}
+
+/* Estadísticas de SLA */
+.sla-stats {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.sla-stats .stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 12px;
+}
+
+.sla-stats .stat-label {
+  color: var(--text-secondary);
+}
+
+.sla-stats .stat-value {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Alerta sin SLA */
+.sla-warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  background: rgba(245, 158, 11, 0.1);
+  border-radius: var(--radius-sm);
+  color: var(--warning);
+  font-size: 12px;
+}
+
+/* Indicador de SLA en lista de tickets */
+.sla-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.sla-indicator.sla-ok {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--success);
+}
+
+.sla-indicator.sla-risk {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--warning);
+}
+
+.sla-indicator.sla-breached {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+}
+
+/* Barra de progreso de SLA */
+.sla-progress {
+  height: 4px;
+  background: var(--bg-tertiary);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.sla-progress-bar {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.sla-progress-bar.progress-ok {
+  background: var(--success);
+}
+
+.sla-progress-bar.progress-warning {
+  background: var(--warning);
+}
+
+.sla-progress-bar.progress-danger {
+  background: var(--danger);
+}

@@ -19,6 +19,8 @@ import {
   UserPlus,
   X,
   Hash,
+  Timer,
+  AlertTriangle,
 } from 'lucide-react';
 
 export default function TicketList() {
@@ -511,6 +513,7 @@ export default function TicketList() {
                   <th>Título</th>
                   <th>Estado</th>
                   <th>Prioridad</th>
+                  <th>SLA</th>
                   <th>Asignado a</th>
                   <th>Fecha</th>
                   <th>Acciones</th>
@@ -525,9 +528,40 @@ export default function TicketList() {
                   const ticketDate = ticket.date || ticket[15];
                   const assignedUser = ticket[5] || ticket.users_id_assign || null;
                   const assignedUserName = ticket[83] || null;
+                  const timeToResolve = ticket.time_to_resolve;
 
                   const status = getStatusLabel(ticketStatus);
                   const priority = getPriorityLabel(ticketPriority);
+
+                  // Calcular estado SLA
+                  const getSLAStatus = () => {
+                    // Si está cerrado o resuelto, no mostrar SLA
+                    if (ticketStatus >= 5) return { status: 'done', label: 'Cerrado', class: '' };
+                    if (!timeToResolve) return { status: 'none', label: '-', class: '' };
+
+                    const now = new Date();
+                    const target = new Date(timeToResolve);
+                    const diffMs = target - now;
+                    const diffHours = diffMs / (1000 * 60 * 60);
+
+                    if (diffMs < 0) {
+                      return { status: 'breached', label: 'Vencido', class: 'sla-breached', icon: AlertTriangle };
+                    } else if (diffHours <= 2) {
+                      return { status: 'critical', label: `${Math.round(diffHours * 60)}m`, class: 'sla-risk', icon: AlertTriangle };
+                    } else if (diffHours <= 8) {
+                      return { status: 'warning', label: `${Math.round(diffHours)}h`, class: 'sla-risk', icon: Timer };
+                    } else {
+                      const days = Math.floor(diffHours / 24);
+                      const hours = Math.round(diffHours % 24);
+                      return {
+                        status: 'ok',
+                        label: days > 0 ? `${days}d ${hours}h` : `${hours}h`,
+                        class: 'sla-ok',
+                        icon: Timer
+                      };
+                    }
+                  };
+                  const slaStatus = getSLAStatus();
                   const StatusIcon = status.icon;
 
                   return (
@@ -546,6 +580,16 @@ export default function TicketList() {
                         <span className={`badge ${priority.class}`}>
                           {priority.label}
                         </span>
+                      </td>
+                      <td className="ticket-sla">
+                        {slaStatus.class ? (
+                          <span className={`sla-indicator ${slaStatus.class}`}>
+                            {slaStatus.icon && <slaStatus.icon size={12} />}
+                            {slaStatus.label}
+                          </span>
+                        ) : (
+                          <span className="sla-none">{slaStatus.label}</span>
+                        )}
                       </td>
                       <td className="ticket-assigned">
                         {assignedUser && assignedUser !== 0 ? (

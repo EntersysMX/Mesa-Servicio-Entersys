@@ -32,6 +32,15 @@ import {
   Copy,
   ExternalLink,
   Bell,
+  Paperclip,
+  Upload,
+  Image,
+  File,
+  Download,
+  Timer,
+  Target,
+  TrendingUp,
+  AlertTriangle,
 } from 'lucide-react';
 
 export default function TicketDetail() {
@@ -70,6 +79,15 @@ export default function TicketDetail() {
   // Estado para información del solicitante
   const [requesterInfo, setRequesterInfo] = useState(null);
 
+  // Estados para archivos adjuntos
+  const [attachedFiles, setAttachedFiles] = useState([]);
+  const [ticketDocuments, setTicketDocuments] = useState([]);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+
+  // Estado para SLA
+  const [slaInfo, setSlaInfo] = useState(null);
+
   const canAssign = isAdmin || isTechnician;
   const canEdit = isAdmin || isTechnician;
 
@@ -96,14 +114,22 @@ export default function TicketDetail() {
         priority: ticketData.priority,
       });
 
-      // Cargar asignaciones actuales y datos del solicitante
+      // Cargar datos del solicitante (siempre)
+      const requester = await glpiApi.getTicketRequester(id);
+      setRequesterInfo(requester);
+
+      // Cargar documentos del ticket
+      const docs = await glpiApi.getTicketDocuments(id);
+      setTicketDocuments(docs);
+
+      // Cargar información de SLA
+      const sla = await glpiApi.getTicketSLA(id);
+      setSlaInfo(sla);
+
+      // Cargar asignaciones actuales (solo si puede asignar)
       if (canAssign) {
-        const [assignees, requester] = await Promise.all([
-          glpiApi.getTicketAssignees(id),
-          glpiApi.getTicketRequester(id),
-        ]);
+        const assignees = await glpiApi.getTicketAssignees(id);
         setCurrentAssignees(assignees);
-        setRequesterInfo(requester);
       }
     } catch (err) {
       setError(err.message);
@@ -111,6 +137,61 @@ export default function TicketDetail() {
       setLoading(false);
     }
   }, [id, canAssign]);
+
+  // Manejar drag and drop de archivos
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFiles(e.dataTransfer.files);
+    }
+  };
+
+  const handleFileInput = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      handleFiles(e.target.files);
+    }
+  };
+
+  const handleFiles = (files) => {
+    const newFiles = Array.from(files);
+    setAttachedFiles(prev => [...prev, ...newFiles]);
+  };
+
+  const removeFile = (index) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const uploadFiles = async () => {
+    if (attachedFiles.length === 0) return;
+
+    setUploadingFiles(true);
+    try {
+      for (const file of attachedFiles) {
+        await glpiApi.uploadDocument(file, id);
+      }
+      setAttachedFiles([]);
+      // Recargar documentos
+      const docs = await glpiApi.getTicketDocuments(id);
+      setTicketDocuments(docs);
+      setSuccess('Archivos subidos correctamente');
+    } catch (err) {
+      setError('Error al subir archivos: ' + err.message);
+    } finally {
+      setUploadingFiles(false);
+    }
+  };
 
   // Cargar opciones de asignación
   const fetchAssignmentOptions = useCallback(async () => {
@@ -186,32 +267,50 @@ Mesa de Ayuda - Entersys
   // Agregar seguimiento/nota
   const handleAddComment = async (e) => {
     e.preventDefault();
-    if (!newComment.trim()) return;
+    if (!newComment.trim() && attachedFiles.length === 0) return;
 
     setSubmitting(true);
     setError(null);
     try {
       const isSolution = commentType === 'solution';
 
-      if (isSolution) {
-        // Agregar solución y cambiar estado a Resuelto
-        await glpiApi.addTicketFollowup(id, `[SOLUCIÓN] ${newComment}`);
-        await glpiApi.updateTicket(id, { status: 5 }); // 5 = Resuelto
-        setSuccess('Solución agregada y ticket marcado como resuelto');
+      // Subir archivos adjuntos primero
+      if (attachedFiles.length > 0) {
+        setUploadingFiles(true);
+        for (const file of attachedFiles) {
+          await glpiApi.uploadDocument(file, id);
+        }
+        setAttachedFiles([]);
+        setUploadingFiles(false);
+      }
+
+      // Agregar seguimiento si hay comentario
+      if (newComment.trim()) {
+        if (isSolution) {
+          // Agregar solución y cambiar estado a Resuelto
+          await glpiApi.addTicketFollowup(id, `[SOLUCIÓN] ${newComment}`);
+          await glpiApi.updateTicket(id, { status: 5 }); // 5 = Resuelto
+          setSuccess('Solución agregada y ticket marcado como resuelto');
+        } else {
+          // Agregar seguimiento normal
+          const prefix = isPrivate ? '[PRIVADO] ' : '';
+          await glpiApi.addTicketFollowup(id, `${prefix}${newComment}`);
+          setSuccess('Nota agregada correctamente');
+        }
+
+        // Obtener email del solicitante
+        const email = requesterInfo?.email ||
+          (requesterInfo?.name?.includes('@') ? requesterInfo.name : null);
+
+        // Abrir correo automáticamente si está activada la notificación y no es privado
+        if (sendNotification && !isPrivate && email) {
+          openEmailClient(newComment, isSolution);
+          setSuccess(prev => prev + ' - Se abrió el correo para enviar notificación');
+        }
       } else {
-        // Agregar seguimiento normal
-        const prefix = isPrivate ? '[PRIVADO] ' : '';
-        await glpiApi.addTicketFollowup(id, `${prefix}${newComment}`);
-        setSuccess('Nota agregada correctamente');
+        setSuccess('Archivos adjuntados correctamente');
       }
 
-      // Abrir correo automáticamente si está activada la notificación y no es privado
-      if (sendNotification && !isPrivate && requesterInfo?.email) {
-        openEmailClient(newComment, isSolution);
-        setSuccess(prev => prev + ' - Se abrió el correo para enviar notificación');
-      }
-
-      const commentContent = newComment; // Guardar antes de limpiar
       setNewComment('');
       setCommentType('followup');
       setIsPrivate(false);
@@ -220,6 +319,7 @@ Mesa de Ayuda - Entersys
       setError(err.message);
     } finally {
       setSubmitting(false);
+      setUploadingFiles(false);
     }
   };
 
@@ -794,6 +894,42 @@ Mesa de Ayuda - Entersys
               </div>
             )}
 
+            {/* Documentos adjuntos del ticket */}
+            {ticketDocuments.length > 0 && (
+              <div className="ticket-documents-section">
+                <h4>
+                  <Paperclip size={16} />
+                  Archivos Adjuntos ({ticketDocuments.length})
+                </h4>
+                <div className="documents-list">
+                  {ticketDocuments.map((doc) => (
+                    <div key={doc.id} className="document-item">
+                      {doc.mime?.startsWith('image/') ? (
+                        <Image size={18} className="doc-icon" />
+                      ) : (
+                        <File size={18} className="doc-icon" />
+                      )}
+                      <div className="doc-info">
+                        <span className="doc-name">{doc.name || doc.filename}</span>
+                        <span className="doc-meta">
+                          {doc.mime} • {new Date(doc.date_creation).toLocaleDateString('es-MX')}
+                        </span>
+                      </div>
+                      <a
+                        href={glpiApi.getDocumentDownloadUrl(doc.id)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-sm btn-secondary download-btn"
+                        title="Descargar archivo"
+                      >
+                        <Download size={14} />
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Formulario de nueva nota */}
             <form onSubmit={handleAddComment} className="followup-form">
               <div className="followup-form-header">
@@ -846,6 +982,51 @@ Mesa de Ayuda - Entersys
                 rows={4}
                 required
               />
+
+              {/* Zona de archivos adjuntos */}
+              <div
+                className={`file-drop-zone ${dragActive ? 'drag-active' : ''}`}
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+              >
+                <input
+                  type="file"
+                  id="file-upload"
+                  multiple
+                  onChange={handleFileInput}
+                  style={{ display: 'none' }}
+                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                />
+                <label htmlFor="file-upload" className="file-drop-label">
+                  <Upload size={20} />
+                  <span>Arrastra archivos aquí o <strong>haz clic para seleccionar</strong></span>
+                  <small>Imágenes, PDF, documentos de Office</small>
+                </label>
+              </div>
+
+              {/* Lista de archivos seleccionados */}
+              {attachedFiles.length > 0 && (
+                <div className="attached-files-list">
+                  <h5><Paperclip size={14} /> Archivos a adjuntar:</h5>
+                  {attachedFiles.map((file, index) => (
+                    <div key={index} className="attached-file-item">
+                      {file.type.startsWith('image/') ? <Image size={16} /> : <File size={16} />}
+                      <span className="file-name">{file.name}</span>
+                      <span className="file-size">({(file.size / 1024).toFixed(1)} KB)</span>
+                      <button
+                        type="button"
+                        onClick={() => removeFile(index)}
+                        className="remove-file-btn"
+                        title="Quitar archivo"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Opciones de notificación */}
               {!isPrivate && requesterInfo?.email && (
@@ -955,64 +1136,180 @@ Mesa de Ayuda - Entersys
             </div>
           )}
 
+          {/* Información de SLA */}
+          {slaInfo && (
+            <div className="sidebar-section sla-section">
+              <h4>
+                <Timer size={16} />
+                SLA / Métricas
+              </h4>
+
+              {/* Tiempo para Resolución (TTR) */}
+              {slaInfo.ttr.target_date && (
+                <div className={`sla-item sla-${slaInfo.ttr.status.color}`}>
+                  <div className="sla-header">
+                    <Target size={14} />
+                    <span>Tiempo de Resolución</span>
+                  </div>
+                  <div className="sla-details">
+                    <span className={`sla-badge badge-${slaInfo.ttr.status.color}`}>
+                      {slaInfo.ttr.status.label}
+                    </span>
+                    <span className="sla-date">
+                      {new Date(slaInfo.ttr.target_date).toLocaleString('es-MX', {
+                        dateStyle: 'short',
+                        timeStyle: 'short'
+                      })}
+                    </span>
+                  </div>
+                  {slaInfo.ttr.status.remaining !== undefined && (
+                    <div className="sla-remaining">
+                      {glpiApi.formatTimeRemaining(slaInfo.ttr.status.remaining)}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Tiempo para Tomar (TTO) */}
+              {slaInfo.tto.target_date && (
+                <div className={`sla-item sla-${slaInfo.tto.status.color}`}>
+                  <div className="sla-header">
+                    <TrendingUp size={14} />
+                    <span>Primera Respuesta</span>
+                  </div>
+                  <div className="sla-details">
+                    <span className={`sla-badge badge-${slaInfo.tto.status.color}`}>
+                      {slaInfo.tto.status.label}
+                    </span>
+                    <span className="sla-date">
+                      {new Date(slaInfo.tto.target_date).toLocaleString('es-MX', {
+                        dateStyle: 'short',
+                        timeStyle: 'short'
+                      })}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Estadísticas de tiempo */}
+              <div className="sla-stats">
+                <div className="stat-item">
+                  <span className="stat-label">Creado</span>
+                  <span className="stat-value">
+                    {slaInfo.dates.created
+                      ? new Date(slaInfo.dates.created).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })
+                      : '-'}
+                  </span>
+                </div>
+                {slaInfo.stats.takeinto_delay > 0 && (
+                  <div className="stat-item">
+                    <span className="stat-label">Tiempo de Toma</span>
+                    <span className="stat-value">
+                      {Math.round(slaInfo.stats.takeinto_delay)} min
+                    </span>
+                  </div>
+                )}
+                {slaInfo.dates.solved && (
+                  <div className="stat-item">
+                    <span className="stat-label">Resuelto</span>
+                    <span className="stat-value">
+                      {new Date(slaInfo.dates.solved).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })}
+                    </span>
+                  </div>
+                )}
+                {slaInfo.stats.solve_delay > 0 && (
+                  <div className="stat-item">
+                    <span className="stat-label">Tiempo Total</span>
+                    <span className="stat-value">
+                      {slaInfo.stats.solve_delay < 60
+                        ? `${Math.round(slaInfo.stats.solve_delay)} min`
+                        : slaInfo.stats.solve_delay < 1440
+                        ? `${Math.round(slaInfo.stats.solve_delay / 60)} hrs`
+                        : `${Math.round(slaInfo.stats.solve_delay / 1440)} días`}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Alerta si no hay SLA configurado */}
+              {!slaInfo.ttr.target_date && !slaInfo.tto.target_date && (
+                <div className="sla-warning">
+                  <AlertTriangle size={14} />
+                  <span>Sin SLA asignado</span>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Información del solicitante */}
           <div className="sidebar-section requester-section">
             <h4>
               <User size={16} />
               Solicitante
             </h4>
-            <div className="requester-info">
-              <div className="requester-name">
-                <User size={14} />
-                <span>
-                  {requesterInfo?.realname
-                    ? `${requesterInfo.realname} ${requesterInfo.firstname || ''}`.trim()
-                    : requesterInfo?.name || `Usuario #${ticket.users_id_recipient}`}
-                </span>
-              </div>
-              {requesterInfo?.email && (
-                <div className="requester-email">
-                  <Mail size={14} />
-                  <span>{requesterInfo.email}</span>
-                </div>
-              )}
-              {requesterInfo?.phone && (
-                <div className="requester-phone">
-                  <span>Tel: {requesterInfo.phone}</span>
-                </div>
-              )}
-            </div>
+            {(() => {
+              // Obtener email: del campo email, o del nombre si parece email
+              const email = requesterInfo?.email ||
+                (requesterInfo?.name?.includes('@') ? requesterInfo.name : null);
+              const displayName = requesterInfo?.realname
+                ? `${requesterInfo.realname} ${requesterInfo.firstname || ''}`.trim()
+                : (requesterInfo?.name && !requesterInfo.name.includes('@')
+                    ? requesterInfo.name
+                    : null);
 
-            {/* Acciones de contacto */}
-            {requesterInfo?.email && (
-              <div className="contact-actions">
-                <a
-                  href={`mailto:${requesterInfo.email}?subject=Re: Ticket #${ticket.id} - ${ticket.name}`}
-                  className="btn btn-sm btn-primary contact-btn"
-                  title="Enviar correo al solicitante"
-                >
-                  <Mail size={14} />
-                  Enviar Correo
-                </a>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(requesterInfo.email);
-                    setSuccess('Correo copiado al portapapeles');
-                  }}
-                  className="btn btn-sm btn-secondary contact-btn"
-                  title="Copiar correo"
-                >
-                  <Copy size={14} />
-                </button>
-              </div>
-            )}
+              return (
+                <>
+                  <div className="requester-info">
+                    <div className="requester-name">
+                      <User size={14} />
+                      <span>{displayName || email || `Usuario #${ticket.users_id_recipient}`}</span>
+                    </div>
+                    {email && (
+                      <div className="requester-email">
+                        <Mail size={14} />
+                        <span>{email}</span>
+                      </div>
+                    )}
+                    {requesterInfo?.phone && (
+                      <div className="requester-phone">
+                        <span>Tel: {requesterInfo.phone}</span>
+                      </div>
+                    )}
+                  </div>
 
-            {!requesterInfo?.email && canEdit && (
-              <p className="no-email-warning">
-                <AlertCircle size={12} />
-                Sin correo registrado
-              </p>
-            )}
+                  {/* Acciones de contacto */}
+                  {email && (
+                    <div className="contact-actions">
+                      <a
+                        href={`mailto:${email}?subject=Re: Ticket #${ticket.id} - ${ticket.name}`}
+                        className="btn btn-sm btn-primary contact-btn"
+                        title="Enviar correo al solicitante"
+                      >
+                        <Mail size={14} />
+                        Enviar Correo
+                      </a>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(email);
+                          setSuccess('Correo copiado al portapapeles');
+                        }}
+                        className="btn btn-sm btn-secondary contact-btn"
+                        title="Copiar correo"
+                      >
+                        <Copy size={14} />
+                      </button>
+                    </div>
+                  )}
+
+                  {!email && canEdit && (
+                    <p className="no-email-warning">
+                      <AlertCircle size={12} />
+                      Sin correo registrado
+                    </p>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
           {/* Técnicos asignados */}
