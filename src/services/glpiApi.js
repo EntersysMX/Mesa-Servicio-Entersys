@@ -212,6 +212,121 @@ class GlpiApiService {
     });
   }
 
+  // Obtener información de SLA del ticket
+  async getTicketSLA(ticketId) {
+    try {
+      const ticket = await this.getTicket(ticketId);
+
+      // Campos de SLA en GLPI
+      const slaInfo = {
+        // Tiempo para tomar el ticket (Time To Own)
+        tto: {
+          sla_id: ticket.slas_id_tto,
+          target_date: ticket.time_to_own,
+          status: this.calculateSLAStatus(ticket.time_to_own, ticket.takeintoaccount_delay_stat),
+        },
+        // Tiempo para resolver (Time To Resolve)
+        ttr: {
+          sla_id: ticket.slas_id_ttr,
+          target_date: ticket.time_to_resolve,
+          status: this.calculateSLAStatus(ticket.time_to_resolve, ticket.solve_delay_stat),
+        },
+        // Tiempos reales
+        stats: {
+          takeinto_delay: ticket.takeintoaccount_delay_stat, // Minutos para tomar
+          solve_delay: ticket.solve_delay_stat, // Minutos para resolver
+          waiting_duration: ticket.waiting_duration, // Tiempo en espera
+          close_delay: ticket.close_delay_stat, // Tiempo para cerrar
+        },
+        // Fechas importantes
+        dates: {
+          created: ticket.date,
+          modified: ticket.date_mod,
+          solved: ticket.solvedate,
+          closed: ticket.closedate,
+          due: ticket.time_to_resolve,
+        },
+        // Estado actual
+        status: ticket.status,
+        urgency: ticket.urgency,
+        priority: ticket.priority,
+        impact: ticket.impact,
+      };
+
+      return slaInfo;
+    } catch (error) {
+      console.error('Error obteniendo SLA:', error);
+      return null;
+    }
+  }
+
+  // Calcular estado del SLA
+  calculateSLAStatus(targetDate, actualDelay) {
+    if (!targetDate) return { status: 'none', label: 'Sin SLA', color: 'gray' };
+
+    const now = new Date();
+    const target = new Date(targetDate);
+    const diffMs = target - now;
+    const diffMinutes = diffMs / (1000 * 60);
+    const diffHours = diffMinutes / 60;
+
+    // Si ya se resolvió/tomó
+    if (actualDelay !== null && actualDelay !== undefined) {
+      const targetMinutes = (target - new Date(target).setHours(0,0,0,0)) / (1000 * 60);
+      if (actualDelay <= targetMinutes || diffMs >= 0) {
+        return { status: 'met', label: 'Cumplido', color: 'success' };
+      } else {
+        return { status: 'breached', label: 'Vencido', color: 'danger' };
+      }
+    }
+
+    // Aún en curso
+    if (diffMs < 0) {
+      return { status: 'breached', label: 'Vencido', color: 'danger', overdue: true };
+    } else if (diffHours <= 1) {
+      return { status: 'critical', label: 'Crítico', color: 'danger', remaining: diffMinutes };
+    } else if (diffHours <= 4) {
+      return { status: 'warning', label: 'En riesgo', color: 'warning', remaining: diffMinutes };
+    } else {
+      return { status: 'ok', label: 'En tiempo', color: 'success', remaining: diffMinutes };
+    }
+  }
+
+  // Formatear tiempo restante
+  formatTimeRemaining(minutes) {
+    if (minutes < 0) {
+      const absMinutes = Math.abs(minutes);
+      if (absMinutes < 60) return `Vencido hace ${Math.round(absMinutes)} min`;
+      if (absMinutes < 1440) return `Vencido hace ${Math.round(absMinutes / 60)} hrs`;
+      return `Vencido hace ${Math.round(absMinutes / 1440)} días`;
+    }
+    if (minutes < 60) return `${Math.round(minutes)} min restantes`;
+    if (minutes < 1440) return `${Math.round(minutes / 60)} hrs restantes`;
+    return `${Math.round(minutes / 1440)} días restantes`;
+  }
+
+  // Obtener SLAs disponibles
+  async getSLAs(params = {}) {
+    try {
+      const response = await this.api.get('/SLA', { params: { range: '0-50', ...params } });
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.log('Error obteniendo SLAs:', error.message);
+      return [];
+    }
+  }
+
+  // Obtener OLAs (Operational Level Agreement)
+  async getOLAs(params = {}) {
+    try {
+      const response = await this.api.get('/OLA', { params: { range: '0-50', ...params } });
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      console.log('Error obteniendo OLAs:', error.message);
+      return [];
+    }
+  }
+
   async createTicket(ticketData) {
     return this.createItem('Ticket', ticketData);
   }
@@ -240,6 +355,9 @@ class GlpiApiService {
         items_id: ticketId,
         content: content,
         is_private: options.isPrivate ? 1 : 0,
+        // Habilitar notificaciones de GLPI
+        _disablenotif: false,
+        _do_not_compute_status: false,
       };
 
       // Agregar fuente de solicitud si se especifica (para tracking)
@@ -247,81 +365,249 @@ class GlpiApiService {
         followupData.requesttypes_id = options.requestsource_id;
       }
 
+      console.log('📧 Agregando seguimiento con notificación:', {
+        ticketId,
+        isPrivate: options.isPrivate,
+        contentLength: content.length
+      });
+
       const response = await this.api.post('/ITILFollowup', {
         input: followupData,
       });
+
+      console.log('✅ Seguimiento agregado, GLPI debería enviar notificación');
       return response.data;
     } catch (error) {
       throw this.handleError(error);
     }
   }
 
+  // Subir documento a GLPI
+  async uploadDocument(file, ticketId = null) {
+    try {
+      // Crear FormData para enviar el archivo
+      const formData = new FormData();
+      formData.append('uploadManifest', JSON.stringify({
+        input: {
+          name: file.name,
+          _filename: [file.name]
+        }
+      }));
+      formData.append('filename[0]', file);
+
+      const response = await this.api.post('/Document', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      const documentId = response.data?.id;
+      console.log('📎 Documento subido:', documentId);
+
+      // Si hay ticketId, asociar el documento al ticket
+      if (documentId && ticketId) {
+        await this.linkDocumentToTicket(documentId, ticketId);
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('Error subiendo documento:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  // Asociar documento a ticket
+  async linkDocumentToTicket(documentId, ticketId) {
+    try {
+      const response = await this.api.post('/Document_Item', {
+        input: {
+          documents_id: documentId,
+          items_id: ticketId,
+          itemtype: 'Ticket',
+        },
+      });
+      console.log('📎 Documento asociado al ticket:', response.data);
+      return response.data;
+    } catch (error) {
+      // Si es error de permisos, mostrar mensaje más claro
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        console.error('⚠️ Sin permisos para asociar documentos.');
+        console.error('   Configurar en GLPI: Perfiles → Self-Service → Gestión → Documentos → "Asociar documento"');
+        throw new Error('No tienes permisos para adjuntar archivos. Contacta al administrador.');
+      }
+      console.error('Error asociando documento:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  // Obtener documentos de un ticket
+  async getTicketDocuments(ticketId) {
+    try {
+      const response = await this.api.get(`/Ticket/${ticketId}/Document_Item`);
+      const docItems = response.data || [];
+
+      // Obtener detalles de cada documento
+      const documents = await Promise.all(
+        docItems.map(async (item) => {
+          try {
+            const doc = await this.api.get(`/Document/${item.documents_id}`);
+            return {
+              ...doc.data,
+              link_id: item.id,
+            };
+          } catch (e) {
+            return null;
+          }
+        })
+      );
+
+      return documents.filter(d => d !== null);
+    } catch (error) {
+      // Si es error de permisos, mostrar mensaje más claro
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        console.log('⚠️ Sin permisos para ver documentos. Configurar en GLPI: Perfiles → Self-Service → Gestión → Documentos');
+      } else {
+        console.log('Error obteniendo documentos:', error.message);
+      }
+      return [];
+    }
+  }
+
+  // Verificar si el usuario tiene permisos para documentos
+  async canAccessDocuments() {
+    try {
+      await this.api.get('/Document', { params: { range: '0-1' } });
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  // Obtener URL de descarga de documento
+  getDocumentDownloadUrl(documentId) {
+    return `${this.baseUrl}/Document/${documentId}`;
+  }
+
   // Obtener información del solicitante del ticket con email
   async getTicketRequester(ticketId) {
     try {
-      console.log('📧 Obteniendo solicitante del ticket:', ticketId);
+      console.log('========================================');
+      console.log('📧 OBTENIENDO SOLICITANTE DEL TICKET:', ticketId);
+      console.log('========================================');
+
+      // Obtener usuarios relacionados al ticket
       const ticketUsers = await this.api.get(`/Ticket/${ticketId}/Ticket_User`);
       const users = ticketUsers.data || [];
-      console.log('Usuarios del ticket:', users);
 
-      // Tipo 1 = Solicitante
-      const requester = users.find(u => u.type === 1);
-      console.log('Solicitante encontrado:', requester);
+      console.log('👥 Usuarios del ticket:', users);
+      console.log('👥 Tipos de usuario encontrados:');
+      users.forEach(u => {
+        const tipo = u.type === 1 ? 'SOLICITANTE' : (u.type === 2 ? 'ASIGNADO' : `TIPO ${u.type}`);
+        console.log(`   - Usuario ID:${u.users_id} → ${tipo}`);
+      });
 
-      if (requester && requester.users_id) {
-        const userData = await this.getUser(requester.users_id);
-        console.log('Datos del usuario:', userData);
+      // Tipo 1 = Solicitante, Tipo 2 = Asignado
+      let requester = users.find(u => u.type === 1);
 
-        // Intentar obtener email de múltiples fuentes
-        let email = userData.email;
-
-        // Fuente 1: Campo email directo
-        if (!email && userData.email) {
-          email = userData.email;
-        }
-
-        // Fuente 2: Campo _useremails
-        if (!email && userData._useremails && userData._useremails.length > 0) {
-          email = userData._useremails[0];
-          console.log('Email de _useremails:', email);
-        }
-
-        // Fuente 3: Endpoint UserEmail
-        if (!email) {
-          try {
-            const userEmails = await this.api.get(`/User/${requester.users_id}/UserEmail`);
-            const emails = Array.isArray(userEmails.data) ? userEmails.data : [];
-            console.log('UserEmail response:', emails);
-            const primaryEmail = emails.find(e => e.is_default === 1) || emails[0];
-            if (primaryEmail) {
-              email = primaryEmail.email;
-              console.log('Email de UserEmail:', email);
-            }
-          } catch (e) {
-            console.log('No se pudo obtener UserEmail:', e.message);
-          }
-        }
-
-        // Fuente 4: Buscar en los campos del usuario expandido
-        if (!email) {
-          // Algunos GLPI usan campos personalizados
-          const possibleEmailFields = ['useremail', 'email_address', 'mail', 'email1'];
-          for (const field of possibleEmailFields) {
-            if (userData[field]) {
-              email = userData[field];
-              console.log(`Email encontrado en campo ${field}:`, email);
-              break;
-            }
-          }
-        }
-
-        userData.email = email;
-        console.log('📧 Email final del solicitante:', email || 'NO ENCONTRADO');
-        return userData;
+      // Si no hay tipo 1, intentar con el primer usuario
+      if (!requester && users.length > 0) {
+        console.log('⚠️ No hay usuario tipo 1, usando el primero:', users[0]);
+        requester = users[0];
       }
-      return null;
+
+      if (!requester || !requester.users_id) {
+        console.log('❌ No se encontró ningún usuario en el ticket');
+        return null;
+      }
+
+      console.log('Solicitante ID:', requester.users_id);
+
+      // Obtener datos del usuario con expand_dropdowns
+      const userData = await this.api.get(`/User/${requester.users_id}`, {
+        params: { expand_dropdowns: true, with_emails: true }
+      });
+      const user = userData.data;
+
+      console.log('📋 DATOS DEL SOLICITANTE:');
+      console.log('   ID:', user.id);
+      console.log('   Nombre (name):', user.name);
+      console.log('   Nombre real (realname):', user.realname);
+      console.log('   Apellido (firstname):', user.firstname);
+      console.log('   Email directo:', user.email || 'NO TIENE');
+      console.log('   _useremails:', user._useremails || 'NO TIENE');
+      console.log('   Todos los campos:', Object.keys(user).join(', '));
+
+      // Buscar email en todos los campos posibles
+      let email = null;
+
+      // Lista de campos donde puede estar el email
+      const emailFields = [
+        'email', '_email', 'useremail', 'useremails', '_useremails',
+        'email_address', 'mail', 'email1', 'default_email'
+      ];
+
+      for (const field of emailFields) {
+        if (user[field]) {
+          if (Array.isArray(user[field]) && user[field].length > 0) {
+            email = user[field][0];
+            console.log(`✅ Email encontrado en "${field}" (array):`, email);
+            break;
+          } else if (typeof user[field] === 'string' && user[field].includes('@')) {
+            email = user[field];
+            console.log(`✅ Email encontrado en "${field}":`, email);
+            break;
+          }
+        }
+      }
+
+      // Si no encontramos, buscar en endpoint UserEmail
+      if (!email) {
+        try {
+          console.log('Buscando en /User/{id}/UserEmail...');
+          const userEmails = await this.api.get(`/User/${requester.users_id}/UserEmail`);
+          const emails = Array.isArray(userEmails.data) ? userEmails.data : [];
+          console.log('UserEmail response:', emails);
+
+          if (emails.length > 0) {
+            const primaryEmail = emails.find(e => e.is_default === 1) || emails[0];
+            email = primaryEmail?.email;
+            console.log(`✅ Email de UserEmail:`, email);
+          }
+        } catch (e) {
+          console.log('❌ Error en UserEmail:', e.message);
+        }
+      }
+
+      // Buscar cualquier campo que contenga @
+      if (!email) {
+        console.log('Buscando @ en cualquier campo...');
+        for (const [key, value] of Object.entries(user)) {
+          if (typeof value === 'string' && value.includes('@') && value.includes('.')) {
+            email = value;
+            console.log(`✅ Email encontrado en campo "${key}":`, email);
+            break;
+          }
+        }
+      }
+
+      // Si el nombre de usuario parece un email, usarlo
+      if (!email && user.name && user.name.includes('@') && user.name.includes('.')) {
+        email = user.name;
+        console.log('✅ Usando nombre de usuario como email:', email);
+      }
+
+      user.email = email;
+      console.log('========================================');
+      console.log('📧 DATOS DEL SOLICITANTE:');
+      console.log('   Nombre:', user.name);
+      console.log('   Nombre completo:', `${user.realname || ''} ${user.firstname || ''}`.trim() || 'NO TIENE');
+      console.log('========================================');
+      console.log('📧 EL CORREO DEL SOLICITANTE ES:', email || '❌ NO TIENE CORREO REGISTRADO');
+      console.log('========================================');
+
+      return user;
     } catch (error) {
-      console.error('Error getting requester:', error);
+      console.error('❌ Error getting requester:', error);
       return null;
     }
   }
@@ -394,108 +680,46 @@ class GlpiApiService {
     return this.getItems('Location', { range: '0-100', ...params });
   }
 
-  // Técnicos - SOLO usuarios con perfil Technician/Admin/Super-Admin
+  // Técnicos - Obtener usuarios que pueden ser asignados a tickets
   async getTechnicians(params = {}) {
     try {
-      console.log('========================================');
       console.log('=== OBTENIENDO TÉCNICOS ===');
-      console.log('========================================');
 
-      // Nombres de perfiles que son TÉCNICOS (no clientes)
-      const TECH_PROFILE_NAMES = ['technician', 'técnico', 'tecnico', 'admin', 'super-admin', 'supervisor'];
-      // Nombres de perfiles que son CLIENTES (excluir)
-      const CLIENT_PROFILE_NAMES = ['self-service', 'observer', 'hotliner'];
-
-      // 1. Obtener TODOS los perfiles de GLPI
-      let allProfiles = [];
-      let techProfileIds = [];
-
+      // Obtener usuarios activos directamente (no requiere permisos especiales)
+      let allUsers = [];
       try {
-        const profilesRes = await this.api.get('/Profile', { params: { range: '0-50' } });
-        allProfiles = Array.isArray(profilesRes.data) ? profilesRes.data : [];
-
-        console.log('📋 PERFILES EN GLPI:');
-        allProfiles.forEach(p => {
-          const name = (p.name || '').toLowerCase();
-          const esTecnico = TECH_PROFILE_NAMES.some(n => name.includes(n));
-          const esCliente = CLIENT_PROFILE_NAMES.some(n => name.includes(n));
-          const tipo = esTecnico ? '🔧 TÉCNICO' : (esCliente ? '👤 CLIENTE' : '❓ OTRO');
-          console.log(`   ID:${p.id} "${p.name}" → ${tipo}`);
-
-          if (esTecnico) {
-            techProfileIds.push(Number(p.id));
-          }
+        const usersRes = await this.api.get('/User', {
+          params: { range: '0-100', is_active: 1 }
         });
+        allUsers = Array.isArray(usersRes.data) ? usersRes.data : [];
+        console.log(`👥 Usuarios activos: ${allUsers.length}`);
       } catch (e) {
-        console.log('❌ Error obteniendo perfiles:', e.message);
+        console.log('Error obteniendo usuarios:', e.message);
         return [];
       }
-
-      if (techProfileIds.length === 0) {
-        console.log('❌ No se encontraron perfiles de técnico');
-        return [];
-      }
-
-      console.log('🔧 IDs de perfiles TÉCNICOS:', techProfileIds);
-
-      // 2. Obtener todos los usuarios activos
-      const usersRes = await this.api.get('/User', {
-        params: { range: '0-100', is_active: 1 }
-      });
-      const allUsers = Array.isArray(usersRes.data) ? usersRes.data : [];
-      console.log('👥 Usuarios activos:', allUsers.length);
 
       if (allUsers.length === 0) {
         return [];
       }
 
-      // Crear mapa de usuarios para búsqueda rápida
-      const userMap = new Map();
-      allUsers.forEach(u => userMap.set(Number(u.id), u));
+      // Excluir usuarios de sistema y usuarios que parecen ser clientes
+      const systemUsers = ['glpi', 'post-only', 'normal', 'glpi-system', 'api'];
 
-      // 3. Obtener relaciones Profile_User
-      let profileUsers = [];
-      try {
-        const puRes = await this.api.get('/Profile_User', { params: { range: '0-500' } });
-        profileUsers = Array.isArray(puRes.data) ? puRes.data : [];
-        console.log('🔗 Relaciones Profile_User:', profileUsers.length);
-      } catch (e) {
-        console.log('❌ Error obteniendo Profile_User:', e.message);
-        return [];
-      }
+      const technicians = allUsers.filter(u => {
+        const name = (u.name || '').toLowerCase();
+        const id = Number(u.id);
 
-      // Crear mapa de perfiles para búsqueda rápida
-      const profileMap = new Map();
-      allProfiles.forEach(p => profileMap.set(Number(p.id), p.name));
+        // Excluir usuarios de sistema
+        if (systemUsers.includes(name)) return false;
 
-      // 4. Filtrar SOLO usuarios con perfil técnico
-      const techUserIds = new Set();
+        // Excluir IDs muy bajos (usuarios de sistema)
+        if (id <= 2) return false;
 
-      console.log('🔍 USUARIOS CON PERFIL TÉCNICO:');
-      profileUsers.forEach(pu => {
-        const profileId = Number(pu.profiles_id);
-        const userId = Number(pu.users_id);
-        const profileName = profileMap.get(profileId) || `ID:${profileId}`;
-        const user = userMap.get(userId);
-
-        if (techProfileIds.includes(profileId) && user) {
-          console.log(`   ✅ ${user.name || user.realname} (ID:${userId}) - Perfil: ${profileName}`);
-          techUserIds.add(userId);
-        }
+        return true;
       });
 
-      if (techUserIds.size === 0) {
-        console.log('❌ No hay usuarios con perfil técnico');
-        return [];
-      }
-
-      // 5. Retornar solo los técnicos
-      const technicians = allUsers.filter(u => techUserIds.has(Number(u.id)));
-
-      console.log('✅ TÉCNICOS FINALES:', technicians.length);
-      technicians.forEach(t => {
-        console.log(`   - ${t.name || t.realname} (ID:${t.id})`);
-      });
+      console.log(`✅ Técnicos disponibles: ${technicians.length}`);
+      technicians.forEach(t => console.log(`   - ${t.name || t.realname} (ID:${t.id})`));
 
       return technicians;
 
@@ -638,6 +862,55 @@ class GlpiApiService {
       });
     } catch (error) {
       throw this.handleError(error);
+    }
+  }
+
+  // Método alternativo para obtener tickets del usuario actual
+  // Usa el endpoint /Ticket directamente que debería filtrar por permisos del usuario
+  async getMyTickets(params = {}) {
+    try {
+      console.log('📋 Obteniendo mis tickets con getMyTickets...');
+
+      // Intentar con el endpoint directo primero
+      const response = await this.api.get('/Ticket', {
+        params: {
+          range: params.range || '0-100',
+          expand_dropdowns: true,
+          order: 'DESC',
+          sort: 'date_mod',
+          ...params
+        }
+      });
+
+      const tickets = response.data;
+      console.log('📋 Tickets obtenidos:', tickets);
+
+      if (Array.isArray(tickets)) {
+        return tickets;
+      }
+
+      return [];
+    } catch (error) {
+      console.error('Error en getMyTickets:', error);
+
+      // Si falla, intentar con searchTickets
+      try {
+        const session = await this.getFullSession();
+        const userId = session?.session?.glpiID;
+
+        if (userId) {
+          console.log('📋 Intentando búsqueda por usuario ID:', userId);
+          const result = await this.search('Ticket', [
+            { field: 4, searchtype: 'equals', value: userId }
+          ], { range: '0-100' });
+
+          return result.data || [];
+        }
+      } catch (e) {
+        console.error('Error en búsqueda alternativa:', e);
+      }
+
+      return [];
     }
   }
 
