@@ -14,11 +14,28 @@ services:
       - VITE_GLPI_URL=${VITE_GLPI_URL:-https://glpi.entersys.mx}
       - VITE_GLPI_APP_TOKEN=${VITE_GLPI_APP_TOKEN:-***GLPI_APP_TOKEN_REMOVED***}
       - VITE_GLPI_USER_TOKEN=${VITE_GLPI_USER_TOKEN:-}
-    ports:
-      - "3000:80"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.helpdesk-frontend.rule=Host(`soporte.entersys.mx`)"
+      - "traefik.http.routers.helpdesk-frontend.entrypoints=websecure"
+      - "traefik.http.routers.helpdesk-frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.helpdesk-frontend.loadbalancer.server.port=80"
     networks:
-      - helpdesk-network
+      - traefik-public
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 networks:
-  helpdesk-network:
-    driver: bridge
+  traefik-public:
+    external: true
