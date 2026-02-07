@@ -36,6 +36,34 @@ services:
       timeout: 10s
       retries: 3
 
+  # Servicio de sincronización Smartsheet ↔ GLPI
+  smartsheet-sync:
+    build:
+      context: ./scripts/smartsheet-sync
+      dockerfile: Dockerfile
+    container_name: smartsheet-sync
+    restart: unless-stopped
+    environment:
+      - SMARTSHEET_TOKEN=${SMARTSHEET_TOKEN:-***SMARTSHEET_TOKEN_REMOVED***}
+      - SMARTSHEET_SHEET_ID=${SMARTSHEET_SHEET_ID:-6629881724331908}
+      - GLPI_URL=${GLPI_URL:-https://glpi.entersys.mx/apirest.php}
+      - GLPI_APP_TOKEN=${GLPI_APP_TOKEN:-***GLPI_APP_TOKEN_REMOVED***}
+      - GLPI_USERNAME=${GLPI_USERNAME:-glpi}
+      - GLPI_PASSWORD=${GLPI_PASSWORD:-glpi}
+      - SYNC_INTERVAL=${SYNC_INTERVAL:-5}
+    volumes:
+      - sync-data:/app/data
+    networks:
+      - traefik-public
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 256M
+
+volumes:
+  sync-data:
+
 networks:
   traefik-public:
     external: true
