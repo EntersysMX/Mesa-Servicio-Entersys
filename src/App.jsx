@@ -8,6 +8,7 @@ import TicketCreate from './pages/TicketCreate';
 import TicketDetail from './pages/TicketDetail';
 import MyTickets from './pages/MyTickets';
 import KanbanBoard from './pages/KanbanBoard';
+import ChangePassword from './pages/ChangePassword';
 import './App.css';
 
 function ProtectedRoute({ children }) {
@@ -94,6 +95,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <KanbanBoard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/change-password"
+        element={
+          <ProtectedRoute>
+            <ChangePassword />
           </ProtectedRoute>
         }
       />
