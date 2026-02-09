@@ -13,6 +13,7 @@ import {
   Shield,
   Wrench,
   LayoutGrid,
+  KeyRound,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -165,6 +166,14 @@ export default function Layout({ children }) {
         </nav>
 
         <div className="sidebar-footer">
+          <Link
+            to="/change-password"
+            className={`nav-item ${location.pathname === '/change-password' ? 'active' : ''}`}
+            onClick={() => setSidebarOpen(false)}
+          >
+            <KeyRound size={20} />
+            <span>Cambiar Contraseña</span>
+          </Link>
           <button className="nav-item logout" onClick={logout}>
             <LogOut size={20} />
             <span>Cerrar Sesión</span>
