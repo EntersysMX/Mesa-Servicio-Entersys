@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogIn, UserPlus, AlertCircle, Mail, Lock, User, Building, Phone } from 'lucide-react';
+import { LogIn, UserPlus, AlertCircle, Mail, Lock, User, Building, Phone, KeyRound, ArrowLeft } from 'lucide-react';
 
 export default function Login() {
   const [isLogin, setIsLogin] = useState(true);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [formData, setFormData] = useState({
     username: '',
     password: '',
@@ -15,7 +16,9 @@ export default function Login() {
     phone: '',
     company: '',
   });
+  const [recoveryEmail, setRecoveryEmail] = useState('');
   const [registerSuccess, setRegisterSuccess] = useState(false);
+  const [recoverySuccess, setRecoverySuccess] = useState(false);
 
   const { login, error, loading } = useAuth();
   const navigate = useNavigate();
@@ -40,6 +43,18 @@ export default function Login() {
     setRegisterSuccess(true);
   };
 
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    // Mostrar mensaje de que el admin será contactado
+    setRecoverySuccess(true);
+  };
+
+  const resetForgotPassword = () => {
+    setShowForgotPassword(false);
+    setRecoverySuccess(false);
+    setRecoveryEmail('');
+  };
+
   return (
     <div className="login-container">
       <div className="login-card">
@@ -48,6 +63,7 @@ export default function Login() {
           <p>Sistema de Gestión de Incidentes</p>
         </div>
 
+{/* Tabs de Registrarse - Comentado temporalmente
         <div className="login-tabs">
           <button
             className={`tab ${isLogin ? 'active' : ''}`}
@@ -64,54 +80,125 @@ export default function Login() {
             Registrarse
           </button>
         </div>
+        */}
 
-        {isLogin ? (
-          <form onSubmit={handleLogin} className="login-form">
-            <div className="form-group">
-              <label htmlFor="username">
-                <User size={16} />
-                Usuario
-              </label>
-              <input
-                type="text"
-                id="username"
-                name="username"
-                value={formData.username}
-                onChange={handleChange}
-                placeholder="Ingresa tu usuario"
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="password">
-                <Lock size={16} />
-                Contraseña
-              </label>
-              <input
-                type="password"
-                id="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                placeholder="Ingresa tu contraseña"
-                required
-              />
-            </div>
-
-            {error && (
-              <div className="error-message">
-                <AlertCircle size={16} />
-                {error}
+        {/* Recuperar contraseña - Comentado temporalmente
+        {showForgotPassword ? (
+          <div className="login-form">
+            {recoverySuccess ? (
+              <div className="success-message">
+                <KeyRound size={40} className="success-icon" />
+                <h3>Solicitud Enviada</h3>
+                <p>Se ha enviado tu solicitud de recuperación de contraseña.</p>
+                <p>Un administrador revisará tu solicitud y te contactará al correo <strong>{recoveryEmail}</strong> con instrucciones para restablecer tu contraseña.</p>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-block"
+                  onClick={resetForgotPassword}
+                >
+                  <ArrowLeft size={18} />
+                  Volver a Iniciar Sesión
+                </button>
               </div>
-            )}
+            ) : (
+              <form onSubmit={handleForgotPassword}>
+                <div className="forgot-header">
+                  <KeyRound size={32} />
+                  <h3>Recuperar Contraseña</h3>
+                  <p>Ingresa tu correo electrónico y te enviaremos instrucciones para restablecer tu contraseña.</p>
+                </div>
 
-            <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
-              <LogIn size={18} />
-              {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
-            </button>
-          </form>
-        ) : (
+                <div className="form-group">
+                  <label htmlFor="recoveryEmail">
+                    <Mail size={16} />
+                    Correo Electrónico
+                  </label>
+                  <input
+                    type="email"
+                    id="recoveryEmail"
+                    value={recoveryEmail}
+                    onChange={(e) => setRecoveryEmail(e.target.value)}
+                    placeholder="tu@correo.com"
+                    required
+                  />
+                </div>
+
+                <button type="submit" className="btn btn-primary btn-block">
+                  <Mail size={18} />
+                  Enviar Solicitud
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-link btn-block"
+                  onClick={resetForgotPassword}
+                >
+                  <ArrowLeft size={16} />
+                  Volver a Iniciar Sesión
+                </button>
+              </form>
+            )}
+          </div>
+        ) : */}
+
+        <form onSubmit={handleLogin} className="login-form">
+          <div className="form-group">
+            <label htmlFor="username">
+              <User size={16} />
+              Usuario
+            </label>
+            <input
+              type="text"
+              id="username"
+              name="username"
+              value={formData.username}
+              onChange={handleChange}
+              placeholder="Ingresa tu usuario"
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="password">
+              <Lock size={16} />
+              Contraseña
+            </label>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
+              placeholder="Ingresa tu contraseña"
+              required
+            />
+          </div>
+
+          {/* Link de recuperar contraseña - Comentado temporalmente
+          <button
+            type="button"
+            className="forgot-password-link"
+            onClick={() => setShowForgotPassword(true)}
+          >
+            ¿Olvidaste tu contraseña?
+          </button>
+          */}
+
+          {error && (
+            <div className="error-message">
+              <AlertCircle size={16} />
+              {error}
+            </div>
+          )}
+
+          <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
+            <LogIn size={18} />
+            {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
+          </button>
+        </form>
+
+        {/* Formulario de registro - Comentado temporalmente
+        {!isLogin && (
           <form onSubmit={handleRegister} className="login-form">
             {registerSuccess ? (
               <div className="success-message">
@@ -218,6 +305,7 @@ export default function Login() {
             )}
           </form>
         )}
+        */}
 
         <div className="login-footer">
           <p>Conectado a GLPI - Entersys</p>
