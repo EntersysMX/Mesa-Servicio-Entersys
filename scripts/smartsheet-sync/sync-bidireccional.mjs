@@ -265,6 +265,63 @@ class GlpiAPI {
       return null;
     }
   }
+
+  async findOrCreateUserByEmail(email, name = null) {
+    if (!email) return null;
+    try {
+      // Buscar usuario por email
+      const response = await this.api.get('/User', {
+        headers: this.getHeaders(),
+        params: {
+          'searchText[name]': email,
+          range: '0-50'
+        },
+      });
+      const users = response.data || [];
+
+      // Buscar coincidencia exacta por email o nombre de usuario
+      let found = users.find(u =>
+        u.name?.toLowerCase() === email.toLowerCase() ||
+        u.email?.toLowerCase() === email.toLowerCase()
+      );
+
+      if (found) return found.id;
+
+      // Si no existe, crear usuario con el email
+      const nameParts = name ? name.split(' ') : email.split('@')[0].split('.');
+      const createRes = await this.api.post('/User', {
+        input: {
+          name: email, // username = email
+          realname: nameParts[0] || '',
+          firstname: nameParts.slice(1).join(' ') || '',
+          _useremails: [email],
+          is_active: 1,
+          profiles_id: 1, // Perfil Self-Service por defecto
+        },
+      }, { headers: this.getHeaders() });
+
+      console.log(`    ${c.cyan}→ Usuario creado: ${email}${c.reset}`);
+      return createRes.data.id;
+    } catch (e) {
+      console.log(`    ${c.yellow}! No se pudo crear usuario: ${email} - ${e.message}${c.reset}`);
+      return null;
+    }
+  }
+
+  async assignRequesterToTicket(ticketId, userId) {
+    if (!ticketId || !userId) return;
+    try {
+      await this.api.post('/Ticket_User', {
+        input: {
+          tickets_id: ticketId,
+          users_id: userId,
+          type: 1, // 1 = Solicitante
+        },
+      }, { headers: this.getHeaders() });
+    } catch (e) {
+      // Ya existe la relación o error menor
+    }
+  }
 }
 
 // ============ SINCRONIZACIÓN BIDIRECCIONAL ============
@@ -360,17 +417,29 @@ class BidirectionalSync {
   async createGlpiTicket(ssData) {
     const ticketNum = ssData['No.Ticket'];
     const problema = ssData['Problema'] || 'Sin descripción';
+    const email = ssData['Correo electrónico'] || ssData['Correo Electrónico'] || ssData['Email'] || '';
+    const contactName = ssData['Nombre'] || ssData['Solicitante'] || '';
 
     const ticketData = {
       name: `[SS-${ticketNum}] ${problema.substring(0, 100)}`,
       content: `<p><strong>Ticket Smartsheet #${ticketNum}</strong></p>
 <p><strong>Problema:</strong><br>${problema}</p>
+<p><strong>Solicitante:</strong> ${contactName || 'N/A'} ${email ? `(${email})` : ''}</p>
 <p><strong>Unidad Operativa:</strong> ${ssData['Unidad Operativa'] || 'N/A'}</p>
 <p><strong>Área:</strong> ${ssData['Área'] || 'N/A'}</p>`,
       status: this.ssStatusToGlpi(ssData['Estado del Ticket']),
       urgency: 3,
       type: 1,
     };
+
+    // Buscar o crear usuario por email y asignarlo como solicitante
+    let requesterId = null;
+    if (email) {
+      requesterId = await this.glpi.findOrCreateUserByEmail(email, contactName);
+      if (requesterId) {
+        ticketData._users_id_requester = requesterId;
+      }
+    }
 
     if (ssData['Modulo']) {
       const catId = await this.glpi.findOrCreateCategory(ssData['Modulo']);
@@ -382,7 +451,14 @@ class BidirectionalSync {
       if (locId) ticketData.locations_id = locId;
     }
 
-    return await this.glpi.createTicket(ticketData);
+    const ticketId = await this.glpi.createTicket(ticketData);
+
+    // Si no se asignó el solicitante en la creación, asignarlo después
+    if (requesterId && ticketId) {
+      await this.glpi.assignRequesterToTicket(ticketId, requesterId);
+    }
+
+    return ticketId;
   }
 
   // ========== GLPI → SMARTSHEET ==========
