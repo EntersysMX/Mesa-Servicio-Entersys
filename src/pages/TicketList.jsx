@@ -65,6 +65,8 @@ export default function TicketList() {
   );
   const [searchById, setSearchById] = useState('');
   const [searchByIdError, setSearchByIdError] = useState('');
+  const [searchBySSId, setSearchBySSId] = useState('');
+  const [searchBySSIdError, setSearchBySSIdError] = useState('');
 
   // Paginación
   const [page, setPage] = useState(parseInt(searchParams.get('page')) || 0);
@@ -263,6 +265,24 @@ export default function TicketList() {
     } catch (err) {
       setSearchByIdError(`Ticket #${ticketId} no encontrado`);
     }
+  };
+
+  // Búsqueda por ID de Smartsheet
+  const handleSearchBySSId = async (e) => {
+    e.preventDefault();
+    setSearchBySSIdError('');
+
+    const ssId = searchBySSId.trim().replace('SS-', '').replace('ss-', '');
+
+    if (!ssId || isNaN(ssId)) {
+      setSearchBySSIdError('Ingresa un ID válido');
+      return;
+    }
+
+    // Buscar ticket que contenga [SS-XXX] en el título
+    setOriginFilter('all');
+    setSearchTerm(`[SS-${ssId}]`);
+    setPage(0);
   };
 
   const handleFilterChange = (filterType, value) => {
@@ -486,6 +506,41 @@ export default function TicketList() {
             </button>
             {searchByIdError && (
               <span className="search-error">{searchByIdError}</span>
+            )}
+          </form>
+
+          {/* Búsqueda por ID Smartsheet */}
+          <form onSubmit={handleSearchBySSId} className="search-by-id-form">
+            <div className={`search-input-wrapper small ${searchBySSIdError ? 'error' : ''}`}>
+              <FileSpreadsheet size={16} />
+              <input
+                type="text"
+                placeholder="ID SS..."
+                value={searchBySSId}
+                onChange={(e) => {
+                  setSearchBySSId(e.target.value);
+                  setSearchBySSIdError('');
+                }}
+                style={{ width: '80px' }}
+              />
+              {searchBySSId && (
+                <button
+                  type="button"
+                  className="clear-search"
+                  onClick={() => {
+                    setSearchBySSId('');
+                    setSearchBySSIdError('');
+                  }}
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+            <button type="submit" className="btn btn-sm btn-secondary">
+              Buscar
+            </button>
+            {searchBySSIdError && (
+              <span className="search-error">{searchBySSIdError}</span>
             )}
           </form>
 
