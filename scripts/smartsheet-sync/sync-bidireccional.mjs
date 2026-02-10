@@ -370,6 +370,29 @@ class BidirectionalSync {
     return match ? match[1] : null;
   }
 
+  // Buscar ticket en GLPI por número de Smartsheet
+  async findGlpiTicketBySSNumber(ssNumber) {
+    try {
+      const response = await this.glpi.api.get('/search/Ticket', {
+        headers: this.glpi.getHeaders(),
+        params: {
+          'criteria[0][field]': 1, // Nombre/Título
+          'criteria[0][searchtype]': 'contains',
+          'criteria[0][value]': `[SS-${ssNumber}]`,
+          'forcedisplay[0]': 2, // ID
+          'range': '0-1',
+        },
+      });
+      const data = response.data?.data || [];
+      if (data.length > 0) {
+        return data[0][2]; // Retornar el ID del ticket
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
   // ========== SMARTSHEET → GLPI ==========
   async syncFromSmartsheet() {
     console.log(`\n${c.cyan}[SS → GLPI]${c.reset} Sincronizando desde Smartsheet...`);
@@ -383,16 +406,28 @@ class BidirectionalSync {
     }
 
     const rows = sheet.rows || [];
-    let created = 0, updated = 0;
+    let created = 0, updated = 0, skipped = 0;
 
     for (const row of rows) {
       const data = this.smartsheet.parseRow(row);
       const ticketNum = data['No.Ticket'];
       if (!ticketNum) continue;
 
-      // Buscar si ya existe en GLPI (por mapeo o búsqueda)
-      const glpiId = Object.entries(syncState.ticketMap)
+      // Buscar si ya existe en GLPI (por mapeo local)
+      let glpiId = Object.entries(syncState.ticketMap)
         .find(([gId, ssId]) => ssId === row.id)?.[0];
+
+      // Si no está en el mapeo local, buscar directamente en GLPI
+      if (!glpiId) {
+        glpiId = await this.findGlpiTicketBySSNumber(ticketNum);
+        if (glpiId) {
+          // Agregar al mapeo local para futuras consultas
+          syncState.ticketMap[glpiId] = row.id;
+          skipped++;
+          console.log(`  ${c.yellow}→${c.reset} Ticket SS-${ticketNum} ya existe en GLPI (ID: ${glpiId})`);
+          continue;
+        }
+      }
 
       if (glpiId) {
         // TODO: Actualizar ticket existente si hay cambios
@@ -411,7 +446,8 @@ class BidirectionalSync {
     }
 
     syncState.lastSyncFromSS = new Date().toISOString();
-    console.log(`  ${c.green}Creados: ${created}${c.reset}, Actualizados: ${updated}`);
+    saveState(); // Guardar estado después de sincronizar
+    console.log(`  ${c.green}Creados: ${created}${c.reset}, Actualizados: ${updated}, ${c.yellow}Ya existían: ${skipped}${c.reset}`);
   }
 
   async createGlpiTicket(ssData) {
@@ -536,9 +572,18 @@ class BidirectionalSync {
 
       process.stdout.write(`  [${i + 1}/${rows.length}] #${ticketNum}... `);
 
-      // Verificar si ya está mapeado
-      const existingGlpiId = Object.entries(syncState.ticketMap)
+      // Verificar si ya está mapeado localmente
+      let existingGlpiId = Object.entries(syncState.ticketMap)
         .find(([gId, ssId]) => ssId === row.id)?.[0];
+
+      // Si no está en el mapeo local, buscar directamente en GLPI
+      if (!existingGlpiId) {
+        existingGlpiId = await this.findGlpiTicketBySSNumber(ticketNum);
+        if (existingGlpiId) {
+          // Agregar al mapeo local
+          syncState.ticketMap[existingGlpiId] = row.id;
+        }
+      }
 
       if (existingGlpiId) {
         console.log(`${c.yellow}ya existe (GLPI: ${existingGlpiId})${c.reset}`);
