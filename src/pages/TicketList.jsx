@@ -21,6 +21,11 @@ import {
   Hash,
   Timer,
   AlertTriangle,
+  FileSpreadsheet,
+  Monitor,
+  Mail,
+  Smartphone,
+  Globe,
 } from 'lucide-react';
 
 export default function TicketList() {
@@ -42,6 +47,9 @@ export default function TicketList() {
   );
   const [priorityFilter, setPriorityFilter] = useState(
     searchParams.get('priority') || 'all'
+  );
+  const [originFilter, setOriginFilter] = useState(
+    searchParams.get('origin') || 'all'
   );
   const [searchTerm, setSearchTerm] = useState(
     searchParams.get('search') || ''
@@ -147,9 +155,18 @@ export default function TicketList() {
         filters.priority = priorityFilter;
       }
 
-      // Aplicar búsqueda de texto
+      // Aplicar filtro de origen
+      if (originFilter !== 'all') {
+        filters.searchText = `[${originFilter}]`;
+      }
+
+      // Aplicar búsqueda de texto (se suma al filtro de origen si existe)
       if (searchTerm.trim()) {
-        filters.searchText = searchTerm.trim();
+        if (filters.searchText) {
+          filters.searchText += ` ${searchTerm.trim()}`;
+        } else {
+          filters.searchText = searchTerm.trim();
+        }
       }
 
       const result = await glpiApi.searchTicketsAdvanced(filters, { range });
@@ -163,7 +180,7 @@ export default function TicketList() {
     } finally {
       setLoading(false);
     }
-  }, [page, assignmentFilter, statusFilter, priorityFilter, searchTerm, userId]);
+  }, [page, assignmentFilter, statusFilter, priorityFilter, originFilter, searchTerm, userId]);
 
   // Efecto para cargar tickets
   useEffect(() => {
@@ -181,10 +198,11 @@ export default function TicketList() {
     if (assignmentFilter !== 'all') params.set('assignment', assignmentFilter);
     if (statusFilter !== 'all') params.set('status', statusFilter);
     if (priorityFilter !== 'all') params.set('priority', priorityFilter);
+    if (originFilter !== 'all') params.set('origin', originFilter);
     if (searchTerm) params.set('search', searchTerm);
     if (page > 0) params.set('page', page.toString());
     setSearchParams(params, { replace: true });
-  }, [assignmentFilter, statusFilter, priorityFilter, searchTerm, page, setSearchParams]);
+  }, [assignmentFilter, statusFilter, priorityFilter, originFilter, searchTerm, page, setSearchParams]);
 
   // Handlers
   const handleSearch = (e) => {
@@ -223,12 +241,14 @@ export default function TicketList() {
     if (filterType === 'assignment') setAssignmentFilter(value);
     if (filterType === 'status') setStatusFilter(value);
     if (filterType === 'priority') setPriorityFilter(value);
+    if (filterType === 'origin') setOriginFilter(value);
   };
 
   const clearFilters = () => {
     setAssignmentFilter('all');
     setStatusFilter('all');
     setPriorityFilter('all');
+    setOriginFilter('all');
     setSearchTerm('');
     setPage(0);
   };
@@ -284,11 +304,30 @@ export default function TicketList() {
     return priorityMap[priority] || { label: 'Normal', class: 'priority-medium' };
   };
 
+  // Detectar origen del ticket por el nombre
+  const getTicketOrigin = (ticketName) => {
+    if (!ticketName) return null;
+    if (ticketName.includes('[Smartsheet]')) {
+      return { label: 'Smartsheet', class: 'origin-smartsheet', icon: FileSpreadsheet };
+    }
+    if (ticketName.includes('[Portal]')) {
+      return { label: 'Portal', class: 'origin-portal', icon: Monitor };
+    }
+    if (ticketName.includes('[Correo]')) {
+      return { label: 'Correo', class: 'origin-email', icon: Mail };
+    }
+    if (ticketName.includes('[WhatsApp]')) {
+      return { label: 'WhatsApp', class: 'origin-whatsapp', icon: Smartphone };
+    }
+    return null;
+  };
+
   const totalPages = Math.ceil(totalCount / pageSize);
   const hasActiveFilters =
     assignmentFilter !== 'all' ||
     statusFilter !== 'all' ||
     priorityFilter !== 'all' ||
+    originFilter !== 'all' ||
     searchTerm !== '';
 
   return (
@@ -461,6 +500,23 @@ export default function TicketList() {
             </select>
           </div>
 
+          <div className="filter-group">
+            <label>
+              <Globe size={14} />
+              Origen:
+            </label>
+            <select
+              value={originFilter}
+              onChange={(e) => handleFilterChange('origin', e.target.value)}
+            >
+              <option value="all">Todos</option>
+              <option value="Smartsheet">Smartsheet</option>
+              <option value="Portal">Portal</option>
+              <option value="Correo">Correo</option>
+              <option value="WhatsApp">WhatsApp</option>
+            </select>
+          </div>
+
           {hasActiveFilters && (
             <button onClick={clearFilters} className="btn btn-sm btn-secondary">
               <X size={14} />
@@ -511,6 +567,7 @@ export default function TicketList() {
                 <tr>
                   <th>ID</th>
                   <th>Título</th>
+                  <th>Origen</th>
                   <th>Estado</th>
                   <th>Prioridad</th>
                   <th>SLA</th>
@@ -563,12 +620,23 @@ export default function TicketList() {
                   };
                   const slaStatus = getSLAStatus();
                   const StatusIcon = status.icon;
+                  const origin = getTicketOrigin(ticketName);
 
                   return (
                     <tr key={ticketId} className={ticketStatus === 1 ? 'ticket-row-new' : ''}>
                       <td className="ticket-id">#{ticketId}</td>
                       <td className="ticket-name">
                         <Link to={`/tickets/${ticketId}`}>{ticketName}</Link>
+                      </td>
+                      <td className="ticket-origin">
+                        {origin ? (
+                          <span className={`badge ${origin.class}`}>
+                            <origin.icon size={12} />
+                            {origin.label}
+                          </span>
+                        ) : (
+                          <span className="origin-unknown">-</span>
+                        )}
                       </td>
                       <td>
                         <span className={`badge ${status.class}`}>

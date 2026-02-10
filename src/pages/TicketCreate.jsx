@@ -66,10 +66,10 @@ export default function TicketCreate() {
     setError(null);
 
     try {
-      // Preparar datos del ticket
+      // Preparar datos del ticket con origen Portal
       const ticketData = {
-        name: formData.name,
-        content: `<p>${formData.content.replace(/\n/g, '</p><p>')}</p>`,
+        name: `[Portal] ${formData.name}`,
+        content: `<p><strong>[ORIGEN:Portal]</strong></p><p>${formData.content.replace(/\n/g, '</p><p>')}</p>`,
         type: formData.type,
         urgency: formData.urgency,
         impact: formData.impact,
