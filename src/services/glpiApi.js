@@ -1044,6 +1044,29 @@ class GlpiApiService {
           value: filters.priority,
           link: criteriaIndex > 0 ? 'AND' : undefined,
         });
+        criteriaIndex++;
+      }
+
+      // Filtro por fecha desde (fecha de creación)
+      if (filters.dateFrom) {
+        criteria.push({
+          field: 15, // Campo de fecha de creación
+          searchtype: 'morethan',
+          value: filters.dateFrom,
+          link: criteriaIndex > 0 ? 'AND' : undefined,
+        });
+        criteriaIndex++;
+      }
+
+      // Filtro por fecha hasta (fecha de creación)
+      if (filters.dateTo) {
+        criteria.push({
+          field: 15, // Campo de fecha de creación
+          searchtype: 'lessthan',
+          value: filters.dateTo,
+          link: criteriaIndex > 0 ? 'AND' : undefined,
+        });
+        criteriaIndex++;
       }
 
       if (criteria.length > 0) {

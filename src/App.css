@@ -989,6 +989,37 @@ body {
 
 .ticket-origin { white-space: nowrap; }
 
+/* ID de Smartsheet */
+.ticket-ss-id { white-space: nowrap; text-align: center; }
+.ss-id-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  background: #e0f2fe;
+  color: #0369a1;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  font-family: monospace;
+}
+.ss-id-na {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-style: italic;
+}
+
+/* Filtros de fecha */
+.filter-dates .date-input {
+  padding: 6px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  background: white;
+}
+.filter-dates .date-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
 /* ==================== EMPTY STATE ==================== */
 .empty-state {
   padding: 48px 24px;

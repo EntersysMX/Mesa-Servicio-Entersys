@@ -421,9 +421,8 @@ class BidirectionalSync {
     const contactName = ssData['Nombre'] || ssData['Solicitante'] || '';
 
     const ticketData = {
-      name: `[Smartsheet] [SS-${ticketNum}] ${problema.substring(0, 100)}`,
+      name: `[SS-${ticketNum}] ${problema.substring(0, 100)}`,
       content: `<p><strong>[ORIGEN:Smartsheet]</strong></p>
-<p><strong>Ticket Smartsheet #${ticketNum}</strong></p>
 <p><strong>Problema:</strong><br>${problema}</p>
 <p><strong>Unidad Operativa:</strong> ${ssData['Unidad Operativa'] || 'N/A'}</p>
 <p><strong>Área:</strong> ${ssData['Área'] || 'N/A'}</p>`,
