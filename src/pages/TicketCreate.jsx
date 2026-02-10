@@ -68,7 +68,7 @@ export default function TicketCreate() {
     try {
       // Preparar datos del ticket con origen Portal
       const ticketData = {
-        name: `[Portal] ${formData.name}`,
+        name: formData.name,
         content: `<p><strong>[ORIGEN:Portal]</strong></p><p>${formData.content.replace(/\n/g, '</p><p>')}</p>`,
         type: formData.type,
         urgency: formData.urgency,

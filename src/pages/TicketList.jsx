@@ -51,6 +51,15 @@ export default function TicketList() {
   const [originFilter, setOriginFilter] = useState(
     searchParams.get('origin') || 'all'
   );
+  const [technicianFilter, setTechnicianFilter] = useState(
+    searchParams.get('technician') || 'all'
+  );
+  const [dateFromFilter, setDateFromFilter] = useState(
+    searchParams.get('dateFrom') || ''
+  );
+  const [dateToFilter, setDateToFilter] = useState(
+    searchParams.get('dateTo') || ''
+  );
   const [searchTerm, setSearchTerm] = useState(
     searchParams.get('search') || ''
   );
@@ -155,9 +164,26 @@ export default function TicketList() {
         filters.priority = priorityFilter;
       }
 
-      // Aplicar filtro de origen
+      // Aplicar filtro de origen (Smartsheet se busca por [SS-)
       if (originFilter !== 'all') {
-        filters.searchText = `[${originFilter}]`;
+        if (originFilter === 'Smartsheet') {
+          filters.searchText = '[SS-';
+        } else {
+          filters.searchText = `[ORIGEN:${originFilter}]`;
+        }
+      }
+
+      // Aplicar filtro de técnico asignado
+      if (technicianFilter !== 'all') {
+        filters.assignedTo = parseInt(technicianFilter, 10);
+      }
+
+      // Aplicar filtro de fechas
+      if (dateFromFilter) {
+        filters.dateFrom = dateFromFilter;
+      }
+      if (dateToFilter) {
+        filters.dateTo = dateToFilter;
       }
 
       // Aplicar búsqueda de texto (se suma al filtro de origen si existe)
@@ -180,7 +206,7 @@ export default function TicketList() {
     } finally {
       setLoading(false);
     }
-  }, [page, assignmentFilter, statusFilter, priorityFilter, originFilter, searchTerm, userId]);
+  }, [page, assignmentFilter, statusFilter, priorityFilter, originFilter, technicianFilter, dateFromFilter, dateToFilter, searchTerm, userId]);
 
   // Efecto para cargar tickets
   useEffect(() => {
@@ -199,10 +225,13 @@ export default function TicketList() {
     if (statusFilter !== 'all') params.set('status', statusFilter);
     if (priorityFilter !== 'all') params.set('priority', priorityFilter);
     if (originFilter !== 'all') params.set('origin', originFilter);
+    if (technicianFilter !== 'all') params.set('technician', technicianFilter);
+    if (dateFromFilter) params.set('dateFrom', dateFromFilter);
+    if (dateToFilter) params.set('dateTo', dateToFilter);
     if (searchTerm) params.set('search', searchTerm);
     if (page > 0) params.set('page', page.toString());
     setSearchParams(params, { replace: true });
-  }, [assignmentFilter, statusFilter, priorityFilter, originFilter, searchTerm, page, setSearchParams]);
+  }, [assignmentFilter, statusFilter, priorityFilter, originFilter, technicianFilter, dateFromFilter, dateToFilter, searchTerm, page, setSearchParams]);
 
   // Handlers
   const handleSearch = (e) => {
@@ -242,6 +271,9 @@ export default function TicketList() {
     if (filterType === 'status') setStatusFilter(value);
     if (filterType === 'priority') setPriorityFilter(value);
     if (filterType === 'origin') setOriginFilter(value);
+    if (filterType === 'technician') setTechnicianFilter(value);
+    if (filterType === 'dateFrom') setDateFromFilter(value);
+    if (filterType === 'dateTo') setDateToFilter(value);
   };
 
   const clearFilters = () => {
@@ -249,6 +281,9 @@ export default function TicketList() {
     setStatusFilter('all');
     setPriorityFilter('all');
     setOriginFilter('all');
+    setTechnicianFilter('all');
+    setDateFromFilter('');
+    setDateToFilter('');
     setSearchTerm('');
     setPage(0);
   };
@@ -304,22 +339,32 @@ export default function TicketList() {
     return priorityMap[priority] || { label: 'Normal', class: 'priority-medium' };
   };
 
-  // Detectar origen del ticket por el nombre
-  const getTicketOrigin = (ticketName) => {
-    if (!ticketName) return null;
-    if (ticketName.includes('[Smartsheet]')) {
+  // Detectar origen del ticket - Smartsheet se detecta por [SS-XXX], los demás por el contenido
+  const getTicketOrigin = (ticketName, ticketContent) => {
+    // Los tickets de Smartsheet tienen [SS-XXXX] en el nombre
+    if (ticketName && ticketName.includes('[SS-')) {
       return { label: 'Smartsheet', class: 'origin-smartsheet', icon: FileSpreadsheet };
     }
-    if (ticketName.includes('[Portal]')) {
-      return { label: 'Portal', class: 'origin-portal', icon: Monitor };
-    }
-    if (ticketName.includes('[Correo]')) {
-      return { label: 'Correo', class: 'origin-email', icon: Mail };
-    }
-    if (ticketName.includes('[WhatsApp]')) {
-      return { label: 'WhatsApp', class: 'origin-whatsapp', icon: Smartphone };
+    // Para otros orígenes, verificar el contenido si está disponible
+    if (ticketContent) {
+      if (ticketContent.includes('[ORIGEN:Portal]')) {
+        return { label: 'Portal', class: 'origin-portal', icon: Monitor };
+      }
+      if (ticketContent.includes('[ORIGEN:Correo]')) {
+        return { label: 'Correo', class: 'origin-email', icon: Mail };
+      }
+      if (ticketContent.includes('[ORIGEN:WhatsApp]')) {
+        return { label: 'WhatsApp', class: 'origin-whatsapp', icon: Smartphone };
+      }
     }
     return null;
+  };
+
+  // Extraer ID de Smartsheet del título
+  const getSmartsheetId = (ticketName) => {
+    if (!ticketName) return null;
+    const match = ticketName.match(/\[SS-(\d+)\]/);
+    return match ? match[1] : null;
   };
 
   const totalPages = Math.ceil(totalCount / pageSize);
@@ -328,6 +373,9 @@ export default function TicketList() {
     statusFilter !== 'all' ||
     priorityFilter !== 'all' ||
     originFilter !== 'all' ||
+    technicianFilter !== 'all' ||
+    dateFromFilter !== '' ||
+    dateToFilter !== '' ||
     searchTerm !== '';
 
   return (
@@ -517,6 +565,49 @@ export default function TicketList() {
             </select>
           </div>
 
+          {(isAdmin || isTechnician) && (
+            <div className="filter-group">
+              <label>
+                <User size={14} />
+                Técnico:
+              </label>
+              <select
+                value={technicianFilter}
+                onChange={(e) => handleFilterChange('technician', e.target.value)}
+              >
+                <option value="all">Todos</option>
+                {technicians.map((tech) => (
+                  <option key={tech.id} value={tech.id}>
+                    {tech.realname || tech.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="filter-group filter-dates">
+            <label>
+              <Clock size={14} />
+              Desde:
+            </label>
+            <input
+              type="date"
+              value={dateFromFilter}
+              onChange={(e) => handleFilterChange('dateFrom', e.target.value)}
+              className="date-input"
+            />
+          </div>
+
+          <div className="filter-group filter-dates">
+            <label>Hasta:</label>
+            <input
+              type="date"
+              value={dateToFilter}
+              onChange={(e) => handleFilterChange('dateTo', e.target.value)}
+              className="date-input"
+            />
+          </div>
+
           {hasActiveFilters && (
             <button onClick={clearFilters} className="btn btn-sm btn-secondary">
               <X size={14} />
@@ -566,6 +657,7 @@ export default function TicketList() {
               <thead>
                 <tr>
                   <th>ID</th>
+                  <th>ID SS</th>
                   <th>Título</th>
                   <th>Origen</th>
                   <th>Estado</th>
@@ -620,11 +712,20 @@ export default function TicketList() {
                   };
                   const slaStatus = getSLAStatus();
                   const StatusIcon = status.icon;
-                  const origin = getTicketOrigin(ticketName);
+                  const ticketContent = ticket.content || ticket[21] || '';
+                  const origin = getTicketOrigin(ticketName, ticketContent);
+                  const smartsheetId = getSmartsheetId(ticketName);
 
                   return (
                     <tr key={ticketId} className={ticketStatus === 1 ? 'ticket-row-new' : ''}>
                       <td className="ticket-id">#{ticketId}</td>
+                      <td className="ticket-ss-id">
+                        {smartsheetId ? (
+                          <span className="ss-id-badge">SS-{smartsheetId}</span>
+                        ) : (
+                          <span className="ss-id-na">N/A</span>
+                        )}
+                      </td>
                       <td className="ticket-name">
                         <Link to={`/tickets/${ticketId}`}>{ticketName}</Link>
                       </td>

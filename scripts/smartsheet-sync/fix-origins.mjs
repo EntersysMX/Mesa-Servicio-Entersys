@@ -87,21 +87,78 @@ class GlpiAPI {
 }
 
 async function fixSmartsheetOrigins(glpi) {
-  console.log(`\n${c.bold}=== Agregando origen [Smartsheet] a tickets existentes ===${c.reset}\n`);
+  console.log(`\n${c.bold}=== Agregando origen [ORIGEN:Smartsheet] al contenido de tickets ===${c.reset}\n`);
 
   const tickets = await glpi.getAllTickets();
   console.log(`${c.green}✓${c.reset} ${tickets.length} tickets encontrados\n`);
 
-  // Filtrar tickets que tienen [SS-XXXX] pero no tienen [Smartsheet]
+  // Filtrar tickets que tienen [SS-XXXX] en el nombre
   const ssTickets = tickets.filter(t => {
     const name = t.name || '';
-    return name.includes('[SS-') && !name.includes('[Smartsheet]');
+    return name.includes('[SS-');
   });
 
-  console.log(`${c.cyan}→${c.reset} ${ssTickets.length} tickets de Smartsheet sin tag de origen\n`);
+  console.log(`${c.cyan}→${c.reset} ${ssTickets.length} tickets de Smartsheet encontrados\n`);
 
   if (ssTickets.length === 0) {
-    console.log(`${c.green}✓ Todos los tickets de Smartsheet ya tienen el tag de origen${c.reset}`);
+    console.log(`${c.green}✓ No se encontraron tickets de Smartsheet${c.reset}`);
+    return;
+  }
+
+  let updated = 0;
+  let skipped = 0;
+  let errors = 0;
+
+  for (const ticket of ssTickets) {
+    process.stdout.write(`  Verificando #${ticket.id}... `);
+    try {
+      // Obtener datos completos del ticket
+      const fullTicket = await glpi.getTicket(ticket.id);
+      const content = fullTicket.content || '';
+
+      // Si ya tiene el tag, saltar
+      if (content.includes('[ORIGEN:Smartsheet]')) {
+        console.log(`${c.yellow}ya tiene tag${c.reset}`);
+        skipped++;
+        continue;
+      }
+
+      // Actualizar contenido con tag de origen
+      const newContent = `<p><strong>[ORIGEN:Smartsheet]</strong></p>${content}`;
+
+      await glpi.updateTicket(ticket.id, {
+        content: newContent,
+      });
+
+      console.log(`${c.green}OK${c.reset}`);
+      updated++;
+    } catch (e) {
+      console.log(`${c.red}ERROR: ${e.message}${c.reset}`);
+      errors++;
+    }
+    await new Promise(r => setTimeout(r, 50));
+  }
+
+  console.log(`\n${c.green}Actualizados: ${updated}${c.reset}`);
+  console.log(`${c.yellow}Ya tenían tag: ${skipped}${c.reset}`);
+  console.log(`${c.red}Errores: ${errors}${c.reset}`);
+}
+
+async function removeSmartsheetPrefix(glpi) {
+  console.log(`\n${c.bold}=== Removiendo prefijo [Smartsheet] del título ===${c.reset}\n`);
+
+  const tickets = await glpi.getAllTickets();
+
+  // Filtrar tickets que tienen [Smartsheet] en el nombre
+  const ssTickets = tickets.filter(t => {
+    const name = t.name || '';
+    return name.includes('[Smartsheet]');
+  });
+
+  console.log(`${c.cyan}→${c.reset} ${ssTickets.length} tickets con prefijo [Smartsheet]\n`);
+
+  if (ssTickets.length === 0) {
+    console.log(`${c.green}✓ No hay tickets con prefijo [Smartsheet]${c.reset}`);
     return;
   }
 
@@ -109,23 +166,13 @@ async function fixSmartsheetOrigins(glpi) {
   let errors = 0;
 
   for (const ticket of ssTickets) {
-    process.stdout.write(`  Actualizando #${ticket.id}... `);
+    process.stdout.write(`  Limpiando #${ticket.id}... `);
     try {
-      // Obtener datos completos del ticket
-      const fullTicket = await glpi.getTicket(ticket.id);
-
-      // Actualizar nombre con [Smartsheet] al inicio
-      const newName = `[Smartsheet] ${ticket.name}`;
-
-      // Actualizar contenido con tag de origen si no lo tiene
-      let newContent = fullTicket.content || '';
-      if (!newContent.includes('[ORIGEN:Smartsheet]')) {
-        newContent = `<p><strong>[ORIGEN:Smartsheet]</strong></p>${newContent}`;
-      }
+      // Quitar [Smartsheet] del nombre
+      const newName = ticket.name.replace('[Smartsheet] ', '').replace('[Smartsheet]', '');
 
       await glpi.updateTicket(ticket.id, {
         name: newName,
-        content: newContent,
       });
 
       console.log(`${c.green}OK${c.reset}`);
@@ -146,21 +193,21 @@ async function createTestTickets(glpi) {
 
   const testTickets = [
     {
-      name: '[Portal] Ticket de prueba desde Portal',
+      name: 'Ticket de prueba desde Portal',
       content: '<p><strong>[ORIGEN:Portal]</strong></p><p>Este es un ticket de prueba creado desde el Portal de Mesa de Ayuda.</p>',
       urgency: 3,
       priority: 3,
       type: 1,
     },
     {
-      name: '[Correo] Ticket de prueba recibido por correo',
+      name: 'Ticket de prueba recibido por correo',
       content: '<p><strong>[ORIGEN:Correo]</strong></p><p>Este es un ticket de prueba que simula haber sido recibido por correo electrónico.</p>',
       urgency: 3,
       priority: 3,
       type: 1,
     },
     {
-      name: '[WhatsApp] Ticket de prueba desde WhatsApp',
+      name: 'Ticket de prueba desde WhatsApp',
       content: '<p><strong>[ORIGEN:WhatsApp]</strong></p><p>Este es un ticket de prueba que simula haber sido recibido por WhatsApp.</p>',
       urgency: 3,
       priority: 3,
@@ -193,15 +240,20 @@ async function main() {
       await fixSmartsheetOrigins(glpi);
     }
 
+    if (command === 'clean' || command === 'all') {
+      await removeSmartsheetPrefix(glpi);
+    }
+
     if (command === 'test' || command === 'all') {
       await createTestTickets(glpi);
     }
 
-    if (command !== 'fix' && command !== 'test' && command !== 'all') {
+    if (!['fix', 'clean', 'test', 'all'].includes(command)) {
       console.log(`
 ${c.cyan}Uso:${c.reset}
-  node fix-origins.mjs all     # Actualiza SS y crea tickets de prueba
-  node fix-origins.mjs fix     # Solo actualiza tickets de Smartsheet
+  node fix-origins.mjs all     # Fix + Clean + Test
+  node fix-origins.mjs fix     # Agregar [ORIGEN:Smartsheet] al contenido
+  node fix-origins.mjs clean   # Remover [Smartsheet] del título
   node fix-origins.mjs test    # Solo crea tickets de prueba
 `);
     }

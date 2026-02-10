@@ -587,25 +587,32 @@ Mesa de Ayuda - Entersys
     return urgencyMap[urgency] || 'Media';
   };
 
-  // Detectar origen del ticket
+  // Detectar origen del ticket por el contenido
   const getTicketOrigin = (ticketData) => {
     if (!ticketData) return null;
-    const name = ticketData.name || '';
     const content = ticketData.content || '';
 
-    if (name.includes('[Smartsheet]') || content.includes('[ORIGEN:Smartsheet]')) {
+    if (content.includes('[ORIGEN:Smartsheet]')) {
       return { label: 'Smartsheet', class: 'origin-smartsheet', icon: FileSpreadsheet };
     }
-    if (name.includes('[Portal]') || content.includes('[ORIGEN:Portal]')) {
+    if (content.includes('[ORIGEN:Portal]')) {
       return { label: 'Portal', class: 'origin-portal', icon: Monitor };
     }
-    if (name.includes('[Correo]') || content.includes('[ORIGEN:Correo]')) {
+    if (content.includes('[ORIGEN:Correo]')) {
       return { label: 'Correo', class: 'origin-email', icon: Mail };
     }
-    if (name.includes('[WhatsApp]') || content.includes('[ORIGEN:WhatsApp]')) {
+    if (content.includes('[ORIGEN:WhatsApp]')) {
       return { label: 'WhatsApp', class: 'origin-whatsapp', icon: Smartphone };
     }
     return null; // Origen desconocido o no marcado
+  };
+
+  // Extraer ID de Smartsheet del título
+  const getSmartsheetId = (ticketData) => {
+    if (!ticketData) return null;
+    const name = ticketData.name || '';
+    const match = name.match(/\[SS-(\d+)\]/);
+    return match ? match[1] : null;
   };
 
   // Loading state
@@ -635,6 +642,7 @@ Mesa de Ayuda - Entersys
   const status = getStatusLabel(ticket.status);
   const priority = getPriorityLabel(ticket.priority);
   const origin = getTicketOrigin(ticket);
+  const smartsheetId = getSmartsheetId(ticket);
 
   return (
     <div className="page-container ticket-detail-page">
@@ -650,6 +658,12 @@ Mesa de Ayuda - Entersys
             <span className={`badge ${origin.class}`}>
               <origin.icon size={12} />
               {origin.label}
+            </span>
+          )}
+          {smartsheetId && (
+            <span className="badge origin-smartsheet" title="ID de Smartsheet">
+              <FileSpreadsheet size={12} />
+              SS-{smartsheetId}
             </span>
           )}
         </div>
