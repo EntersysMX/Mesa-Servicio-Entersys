@@ -1025,6 +1025,17 @@ class GlpiApiService {
         criteriaIndex++;
       }
 
+      // Filtro por búsqueda en contenido (para origen)
+      if (filters.searchContent) {
+        criteria.push({
+          field: 21, // Campo de contenido
+          searchtype: 'contains',
+          value: filters.searchContent,
+          link: criteriaIndex > 0 ? 'AND' : undefined,
+        });
+        criteriaIndex++;
+      }
+
       // Filtro para tickets sin asignar
       if (filters.unassigned) {
         criteria.push({

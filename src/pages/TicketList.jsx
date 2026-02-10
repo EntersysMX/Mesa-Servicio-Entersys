@@ -166,12 +166,14 @@ export default function TicketList() {
         filters.priority = priorityFilter;
       }
 
-      // Aplicar filtro de origen (Smartsheet se busca por [SS-)
+      // Aplicar filtro de origen
       if (originFilter !== 'all') {
         if (originFilter === 'Smartsheet') {
+          // Smartsheet se busca por [SS- en el título
           filters.searchText = '[SS-';
         } else {
-          filters.searchText = `[ORIGEN:${originFilter}]`;
+          // Otros orígenes se buscan por [ORIGEN:xxx] en el contenido
+          filters.searchContent = `[ORIGEN:${originFilter}]`;
         }
       }
 
