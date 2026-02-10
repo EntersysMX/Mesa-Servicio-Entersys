@@ -41,6 +41,7 @@ import {
   Target,
   TrendingUp,
   AlertTriangle,
+  Phone,
 } from 'lucide-react';
 
 export default function TicketDetail() {
@@ -1242,10 +1243,10 @@ Mesa de Ayuda - Entersys
           )}
 
           {/* Información del solicitante */}
-          <div className="sidebar-section requester-section">
+          <div className="sidebar-section requester-section requester-highlight">
             <h4>
               <User size={16} />
-              Solicitante
+              Información de Solicitante
             </h4>
             {(() => {
               // Obtener email: del campo email, o del nombre si parece email
@@ -1272,7 +1273,8 @@ Mesa de Ayuda - Entersys
                     )}
                     {requesterInfo?.phone && (
                       <div className="requester-phone">
-                        <span>Tel: {requesterInfo.phone}</span>
+                        <Phone size={14} />
+                        <span>{requesterInfo.phone}</span>
                       </div>
                     )}
                   </div>
@@ -1312,135 +1314,116 @@ Mesa de Ayuda - Entersys
             })()}
           </div>
 
-          {/* Técnicos asignados */}
+          {/* Técnico asignado */}
           {canAssign && (
             <div className="sidebar-section">
               <h4>
                 <User size={16} />
-                Técnicos Asignados
+                Técnico Asignado
               </h4>
-              {currentAssignees.users.length > 0 ? (
-                <div className="assignees-list">
-                  {currentAssignees.users
-                    .filter((a) => a.type === 2) // type 2 = asignado
-                    .map((assignment) => (
-                      <div key={assignment.id} className="assignee-item">
-                        <User size={14} />
-                        <span>
-                          {technicians.find((t) => t.id === assignment.users_id)?.name ||
-                            `Usuario #${assignment.users_id}`}
-                        </span>
-                        <button
-                          onClick={() => handleRemoveUserAssignment(assignment.id, assignment.users_id)}
-                          className="btn-remove"
-                          title="Quitar asignación"
-                          disabled={assigning}
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                    ))}
-                </div>
-              ) : (
-                <p className="no-assignees">Sin técnico asignado</p>
-              )}
+              {(() => {
+                const currentTech = currentAssignees.users.find((a) => a.type === 2);
+                const currentTechId = currentTech?.users_id || '';
+                const currentTechName = currentTechId
+                  ? technicians.find((t) => t.id === currentTechId)?.name || `Usuario #${currentTechId}`
+                  : '';
 
-              {/* Agregar técnico */}
-              <div className="add-assignee">
-                <select
-                  value={selectedTechnician}
-                  onChange={(e) => setSelectedTechnician(e.target.value)}
-                >
-                  <option value="">-- Agregar técnico --</option>
-                  {technicians
-                    .filter(
-                      (t) =>
-                        !currentAssignees.users.some(
-                          (a) => a.users_id === t.id && a.type === 2
-                        )
-                    )
-                    .map((tech) => (
-                      <option key={tech.id} value={tech.id}>
-                        {tech.name} {tech.realname ? `(${tech.realname})` : ''}
-                      </option>
-                    ))}
-                </select>
-                {selectedTechnician && (
-                  <button
-                    onClick={handleAddAssignment}
-                    className="btn btn-sm btn-primary"
-                    disabled={assigning}
-                  >
-                    <UserPlus size={14} />
-                  </button>
-                )}
-              </div>
+                return (
+                  <div className="single-assignee">
+                    <select
+                      value={currentTechId}
+                      onChange={async (e) => {
+                        const newTechId = e.target.value;
+                        if (newTechId === String(currentTechId)) return;
+
+                        setAssigning(true);
+                        try {
+                          // Remover técnico actual si existe
+                          if (currentTech) {
+                            await glpiApi.removeTicketUserAssignment(currentTech.id);
+                          }
+                          // Asignar nuevo técnico si se seleccionó uno
+                          if (newTechId) {
+                            await glpiApi.assignTicketToUser(id, parseInt(newTechId, 10));
+                            const techName = technicians.find(t => t.id === parseInt(newTechId, 10))?.name || `Usuario #${newTechId}`;
+                            await glpiApi.addTicketFollowup(id, `[ASIGNACIÓN] ${user?.glpiname || 'Sistema'} asignó el ticket al técnico: ${techName}`);
+                          }
+                          setSuccess(newTechId ? 'Técnico asignado' : 'Técnico removido');
+                          fetchTicket();
+                        } catch (err) {
+                          setError(err.message);
+                        } finally {
+                          setAssigning(false);
+                        }
+                      }}
+                      disabled={assigning}
+                      className="single-select"
+                    >
+                      <option value="">-- Sin técnico --</option>
+                      {technicians.map((tech) => (
+                        <option key={tech.id} value={tech.id}>
+                          {tech.name} {tech.realname ? `(${tech.realname})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
-          {/* Grupos asignados */}
+          {/* Grupo asignado */}
           {canAssign && (
             <div className="sidebar-section">
               <h4>
                 <Users size={16} />
-                Grupos Asignados
+                Grupo Asignado
               </h4>
-              {currentAssignees.groups.length > 0 ? (
-                <div className="assignees-list">
-                  {currentAssignees.groups
-                    .filter((a) => a.type === 2) // type 2 = asignado
-                    .map((assignment) => (
-                      <div key={assignment.id} className="assignee-item">
-                        <Users size={14} />
-                        <span>
-                          {groups.find((g) => g.id === assignment.groups_id)?.name ||
-                            `Grupo #${assignment.groups_id}`}
-                        </span>
-                        <button
-                          onClick={() => handleRemoveGroupAssignment(assignment.id, assignment.groups_id)}
-                          className="btn-remove"
-                          title="Quitar asignación"
-                          disabled={assigning}
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                    ))}
-                </div>
-              ) : (
-                <p className="no-assignees">Sin grupo asignado</p>
-              )}
+              {(() => {
+                const currentGroup = currentAssignees.groups.find((a) => a.type === 2);
+                const currentGroupId = currentGroup?.groups_id || '';
 
-              {/* Agregar grupo */}
-              <div className="add-assignee">
-                <select
-                  value={selectedGroup}
-                  onChange={(e) => setSelectedGroup(e.target.value)}
-                >
-                  <option value="">-- Agregar grupo --</option>
-                  {groups
-                    .filter(
-                      (g) =>
-                        !currentAssignees.groups.some(
-                          (a) => a.groups_id === g.id && a.type === 2
-                        )
-                    )
-                    .map((group) => (
-                      <option key={group.id} value={group.id}>
-                        {group.name}
-                      </option>
-                    ))}
-                </select>
-                {selectedGroup && (
-                  <button
-                    onClick={handleAddAssignment}
-                    className="btn btn-sm btn-primary"
-                    disabled={assigning}
-                  >
-                    <UserPlus size={14} />
-                  </button>
-                )}
-              </div>
+                return (
+                  <div className="single-assignee">
+                    <select
+                      value={currentGroupId}
+                      onChange={async (e) => {
+                        const newGroupId = e.target.value;
+                        if (newGroupId === String(currentGroupId)) return;
+
+                        setAssigning(true);
+                        try {
+                          // Remover grupo actual si existe
+                          if (currentGroup) {
+                            await glpiApi.removeTicketGroupAssignment(currentGroup.id);
+                          }
+                          // Asignar nuevo grupo si se seleccionó uno
+                          if (newGroupId) {
+                            await glpiApi.assignTicketToGroup(id, parseInt(newGroupId, 10));
+                            const groupName = groups.find(g => g.id === parseInt(newGroupId, 10))?.name || `Grupo #${newGroupId}`;
+                            await glpiApi.addTicketFollowup(id, `[ASIGNACIÓN] ${user?.glpiname || 'Sistema'} asignó el ticket al grupo: ${groupName}`);
+                          }
+                          setSuccess(newGroupId ? 'Grupo asignado' : 'Grupo removido');
+                          fetchTicket();
+                        } catch (err) {
+                          setError(err.message);
+                        } finally {
+                          setAssigning(false);
+                        }
+                      }}
+                      disabled={assigning}
+                      className="single-select"
+                    >
+                      <option value="">-- Sin grupo --</option>
+                      {groups.map((group) => (
+                        <option key={group.id} value={group.id}>
+                          {group.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>

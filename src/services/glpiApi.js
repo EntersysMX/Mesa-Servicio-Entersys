@@ -685,11 +685,36 @@ class GlpiApiService {
     try {
       console.log('=== OBTENIENDO TÉCNICOS ===');
 
-      // Obtener usuarios activos directamente (no requiere permisos especiales)
+      // Perfiles que pueden ser técnicos (IDs estándar de GLPI):
+      // 3: Admin, 4: Super-Admin, 6: Technician, 7: Supervisor
+      // Excluir: 1: Self-Service, 2: Observer, 5: Hotliner (solo lectura)
+      const technicianProfiles = [3, 4, 6, 7];
+
+      // Primero obtener Profile_User para saber qué usuarios tienen perfiles de técnico
+      let technicianUserIds = new Set();
+      try {
+        const profileUsersRes = await this.api.get('/Profile_User', {
+          params: { range: '0-500' }
+        });
+        const profileUsers = Array.isArray(profileUsersRes.data) ? profileUsersRes.data : [];
+
+        // Filtrar usuarios que tienen un perfil de técnico
+        profileUsers.forEach(pu => {
+          if (technicianProfiles.includes(Number(pu.profiles_id))) {
+            technicianUserIds.add(Number(pu.users_id));
+          }
+        });
+        console.log(`🔧 Usuarios con perfil técnico: ${technicianUserIds.size}`);
+      } catch (e) {
+        console.log('Error obteniendo Profile_User:', e.message);
+        // Si falla, intentar método alternativo
+      }
+
+      // Obtener usuarios activos
       let allUsers = [];
       try {
         const usersRes = await this.api.get('/User', {
-          params: { range: '0-100', is_active: 1 }
+          params: { range: '0-200', is_active: 1 }
         });
         allUsers = Array.isArray(usersRes.data) ? usersRes.data : [];
         console.log(`👥 Usuarios activos: ${allUsers.length}`);
@@ -702,9 +727,10 @@ class GlpiApiService {
         return [];
       }
 
-      // Excluir usuarios de sistema y usuarios que parecen ser clientes
+      // Usuarios de sistema a excluir
       const systemUsers = ['glpi', 'post-only', 'normal', 'glpi-system', 'api'];
 
+      // Filtrar solo técnicos
       const technicians = allUsers.filter(u => {
         const name = (u.name || '').toLowerCase();
         const id = Number(u.id);
@@ -714,6 +740,15 @@ class GlpiApiService {
 
         // Excluir IDs muy bajos (usuarios de sistema)
         if (id <= 2) return false;
+
+        // Solo incluir si tiene perfil de técnico
+        if (technicianUserIds.size > 0) {
+          return technicianUserIds.has(id);
+        }
+
+        // Si no pudimos obtener Profile_User, excluir usuarios que parecen clientes
+        // (tienen @ en el nombre, indica que es un email usado como username)
+        if (name.includes('@')) return false;
 
         return true;
       });
