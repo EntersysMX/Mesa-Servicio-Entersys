@@ -424,7 +424,6 @@ class BidirectionalSync {
       name: `[SS-${ticketNum}] ${problema.substring(0, 100)}`,
       content: `<p><strong>Ticket Smartsheet #${ticketNum}</strong></p>
 <p><strong>Problema:</strong><br>${problema}</p>
-<p><strong>Solicitante:</strong> ${contactName || 'N/A'} ${email ? `(${email})` : ''}</p>
 <p><strong>Unidad Operativa:</strong> ${ssData['Unidad Operativa'] || 'N/A'}</p>
 <p><strong>Área:</strong> ${ssData['Área'] || 'N/A'}</p>`,
       status: this.ssStatusToGlpi(ssData['Estado del Ticket']),
