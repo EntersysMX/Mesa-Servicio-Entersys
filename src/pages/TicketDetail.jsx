@@ -1376,6 +1376,92 @@ Mesa de Ayuda - Entersys
             })()}
           </div>
 
+          {/* Grupo asignado */}
+          {canAssign && (
+            <div className="sidebar-section">
+              <h4>
+                <Users size={16} />
+                Grupo Asignado
+              </h4>
+              {(() => {
+                const currentGroup = currentAssignees.groups.find((a) => a.type === 2);
+                const currentGroupId = currentGroup?.groups_id || '';
+
+                return (
+                  <div className="single-assignee">
+                    <select
+                      value={currentGroupId}
+                      onChange={async (e) => {
+                        const newGroupId = e.target.value;
+                        if (newGroupId === String(currentGroupId)) return;
+
+                        setAssigning(true);
+                        try {
+                          // Remover grupo actual si existe
+                          if (currentGroup) {
+                            await glpiApi.removeTicketGroupAssignment(currentGroup.id);
+                          }
+
+                          let newGroupAssignment = null;
+
+                          // Asignar nuevo grupo si se seleccionó uno
+                          if (newGroupId) {
+                            const result = await glpiApi.assignTicketToGroup(id, parseInt(newGroupId, 10));
+                            const groupName = groups.find(g => g.id === parseInt(newGroupId, 10))?.name || `Grupo #${newGroupId}`;
+                            await glpiApi.addTicketFollowup(id, `[ASIGNACIÓN] ${user?.glpiname || 'Sistema'} asignó el ticket al grupo: ${groupName}`);
+
+                            // Crear nuevo objeto de asignación para actualizar estado local
+                            newGroupAssignment = {
+                              id: result?.id || Date.now(),
+                              groups_id: parseInt(newGroupId, 10),
+                              type: 2,
+                            };
+
+                            // Filtrar técnicos por el nuevo grupo
+                            const groupId = parseInt(newGroupId, 10);
+                            if (groupTechniciansMap[groupId]) {
+                              const techIds = groupTechniciansMap[groupId];
+                              const filteredTechs = allTechnicians.filter(t => techIds.includes(Number(t.id)));
+                              setTechnicians(filteredTechs);
+                            } else {
+                              setTechnicians(allTechnicians);
+                            }
+                          } else {
+                            // Sin grupo, mostrar todos los técnicos
+                            setTechnicians(allTechnicians);
+                          }
+
+                          // Actualizar estado local sin recargar toda la página
+                          setCurrentAssignees(prev => ({
+                            ...prev,
+                            groups: newGroupAssignment
+                              ? [...prev.groups.filter(g => g.type !== 2), newGroupAssignment]
+                              : prev.groups.filter(g => g.type !== 2),
+                          }));
+
+                          setSuccess(newGroupId ? 'Grupo asignado' : 'Grupo removido');
+                        } catch (err) {
+                          setError(err.message);
+                        } finally {
+                          setAssigning(false);
+                        }
+                      }}
+                      disabled={assigning}
+                      className="single-select"
+                    >
+                      <option value="">-- Sin grupo --</option>
+                      {groups.map((group) => (
+                        <option key={group.id} value={group.id}>
+                          {group.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
           {/* Técnico asignado */}
           {canAssign && (
             <div className="sidebar-section">
@@ -1459,92 +1545,6 @@ Mesa de Ayuda - Entersys
                       {technicians.map((tech) => (
                         <option key={tech.id} value={tech.id}>
                           {tech.name} {tech.realname ? `(${tech.realname})` : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                );
-              })()}
-            </div>
-          )}
-
-          {/* Grupo asignado */}
-          {canAssign && (
-            <div className="sidebar-section">
-              <h4>
-                <Users size={16} />
-                Grupo Asignado
-              </h4>
-              {(() => {
-                const currentGroup = currentAssignees.groups.find((a) => a.type === 2);
-                const currentGroupId = currentGroup?.groups_id || '';
-
-                return (
-                  <div className="single-assignee">
-                    <select
-                      value={currentGroupId}
-                      onChange={async (e) => {
-                        const newGroupId = e.target.value;
-                        if (newGroupId === String(currentGroupId)) return;
-
-                        setAssigning(true);
-                        try {
-                          // Remover grupo actual si existe
-                          if (currentGroup) {
-                            await glpiApi.removeTicketGroupAssignment(currentGroup.id);
-                          }
-
-                          let newGroupAssignment = null;
-
-                          // Asignar nuevo grupo si se seleccionó uno
-                          if (newGroupId) {
-                            const result = await glpiApi.assignTicketToGroup(id, parseInt(newGroupId, 10));
-                            const groupName = groups.find(g => g.id === parseInt(newGroupId, 10))?.name || `Grupo #${newGroupId}`;
-                            await glpiApi.addTicketFollowup(id, `[ASIGNACIÓN] ${user?.glpiname || 'Sistema'} asignó el ticket al grupo: ${groupName}`);
-
-                            // Crear nuevo objeto de asignación para actualizar estado local
-                            newGroupAssignment = {
-                              id: result?.id || Date.now(),
-                              groups_id: parseInt(newGroupId, 10),
-                              type: 2,
-                            };
-
-                            // Filtrar técnicos por el nuevo grupo
-                            const groupId = parseInt(newGroupId, 10);
-                            if (groupTechniciansMap[groupId]) {
-                              const techIds = groupTechniciansMap[groupId];
-                              const filteredTechs = allTechnicians.filter(t => techIds.includes(Number(t.id)));
-                              setTechnicians(filteredTechs);
-                            } else {
-                              setTechnicians(allTechnicians);
-                            }
-                          } else {
-                            // Sin grupo, mostrar todos los técnicos
-                            setTechnicians(allTechnicians);
-                          }
-
-                          // Actualizar estado local sin recargar toda la página
-                          setCurrentAssignees(prev => ({
-                            ...prev,
-                            groups: newGroupAssignment
-                              ? [...prev.groups.filter(g => g.type !== 2), newGroupAssignment]
-                              : prev.groups.filter(g => g.type !== 2),
-                          }));
-
-                          setSuccess(newGroupId ? 'Grupo asignado' : 'Grupo removido');
-                        } catch (err) {
-                          setError(err.message);
-                        } finally {
-                          setAssigning(false);
-                        }
-                      }}
-                      disabled={assigning}
-                      className="single-select"
-                    >
-                      <option value="">-- Sin grupo --</option>
-                      {groups.map((group) => (
-                        <option key={group.id} value={group.id}>
-                          {group.name}
                         </option>
                       ))}
                     </select>
