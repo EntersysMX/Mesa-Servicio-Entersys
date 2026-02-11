@@ -140,9 +140,9 @@ export default function TicketDetail() {
 
         // Filtrar técnicos si hay grupo asignado
         const currentGroup = assignees.groups.find(a => a.type === 2);
-        if (currentGroup && groupTechniciansMap[currentGroup.groups_id]) {
-          const techIds = groupTechniciansMap[currentGroup.groups_id];
-          const filteredTechs = allTechnicians.filter(t => techIds.includes(t.id));
+        if (currentGroup && groupTechniciansMap[Number(currentGroup.groups_id)]) {
+          const techIds = groupTechniciansMap[Number(currentGroup.groups_id)];
+          const filteredTechs = allTechnicians.filter(t => techIds.includes(Number(t.id)));
           if (filteredTechs.length > 0) {
             setTechnicians(filteredTechs);
           }
@@ -1485,7 +1485,7 @@ Mesa de Ayuda - Entersys
                             const groupId = parseInt(newGroupId, 10);
                             if (groupTechniciansMap[groupId]) {
                               const techIds = groupTechniciansMap[groupId];
-                              const filteredTechs = allTechnicians.filter(t => techIds.includes(t.id));
+                              const filteredTechs = allTechnicians.filter(t => techIds.includes(Number(t.id)));
                               setTechnicians(filteredTechs);
                             } else {
                               setTechnicians(allTechnicians);
