@@ -73,14 +73,20 @@ export default function TicketCreate() {
     // Filtrar técnicos cuando cambia el grupo
     if (name === '_groups_id_assign') {
       const groupId = parseInt(value, 10);
+      console.log('🔍 Grupo seleccionado:', groupId);
+      console.log('🔍 Mapeo disponible:', groupTechniciansMap);
+
       if (groupId > 0 && groupTechniciansMap[groupId]) {
         // Filtrar técnicos que pertenecen al grupo seleccionado
         const techIds = groupTechniciansMap[groupId];
-        const filteredTechs = allTechnicians.filter(t => techIds.includes(t.id));
+        console.log('🔍 IDs de técnicos del grupo:', techIds);
+        // Comparar como números
+        const filteredTechs = allTechnicians.filter(t => techIds.includes(Number(t.id)));
+        console.log('🔍 Técnicos filtrados:', filteredTechs.map(t => t.name));
         setTechnicians(filteredTechs);
-        console.log(`🔍 Técnicos del grupo ${groupId}:`, filteredTechs.map(t => t.name));
       } else {
         // Sin grupo seleccionado, mostrar todos los técnicos
+        console.log('🔍 Sin grupo, mostrando todos los técnicos');
         setTechnicians(allTechnicians);
       }
     }

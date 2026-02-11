@@ -816,27 +816,32 @@ class GlpiApiService {
       // Obtener todos los Group_User
       const response = await this.api.get('/Group_User', { params: { range: '0-500' } });
       const groupUsers = response.data || [];
+      console.log('📋 Group_User obtenidos:', groupUsers.length);
 
       // Obtener todos los técnicos
       const technicians = await this.getTechnicians();
-      const technicianIds = new Set(technicians.map(t => t.id));
+      // Usar números para comparación consistente
+      const technicianIds = new Set(technicians.map(t => Number(t.id)));
+      console.log('👥 Técnicos IDs:', Array.from(technicianIds));
 
       // Crear mapeo: groupId -> [technicianIds]
       const groupMap = {};
       groupUsers.forEach(gu => {
-        const groupId = gu.groups_id;
-        const userId = gu.users_id;
+        const groupId = Number(gu.groups_id);
+        const userId = Number(gu.users_id);
 
         // Solo incluir si es técnico
         if (technicianIds.has(userId)) {
           if (!groupMap[groupId]) {
             groupMap[groupId] = [];
           }
-          groupMap[groupId].push(userId);
+          if (!groupMap[groupId].includes(userId)) {
+            groupMap[groupId].push(userId);
+          }
         }
       });
 
-      console.log('✅ Mapeo de grupos cargado:', groupMap);
+      console.log('✅ Mapeo de grupos cargado:', JSON.stringify(groupMap));
       return groupMap;
     } catch (error) {
       console.error('Error obteniendo mapeo de grupos:', error);
