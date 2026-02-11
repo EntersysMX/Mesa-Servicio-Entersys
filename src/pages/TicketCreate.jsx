@@ -14,6 +14,8 @@ export default function TicketCreate() {
   const [groups, setGroups] = useState([]);
   const [locations, setLocations] = useState([]);
   const [technicians, setTechnicians] = useState([]);
+  const [allTechnicians, setAllTechnicians] = useState([]);
+  const [groupTechniciansMap, setGroupTechniciansMap] = useState({});
 
   const [formData, setFormData] = useState({
     name: '',
@@ -32,17 +34,22 @@ export default function TicketCreate() {
     const fetchData = async () => {
       setLoadingData(true);
       try {
-        const [categoriesData, groupsData, locationsData, techniciansData] = await Promise.all([
+        const [categoriesData, groupsData, locationsData, techniciansData, groupMapData] = await Promise.all([
           glpiApi.getCategories({ range: '0-100' }).catch(() => []),
           glpiApi.getGroups().catch(() => []),
           glpiApi.getLocations().catch(() => []),
           glpiApi.getTechnicians().catch(() => []),
+          glpiApi.getGroupTechniciansMap().catch(() => ({})),
         ]);
 
         setCategories(Array.isArray(categoriesData) ? categoriesData : []);
         setGroups(Array.isArray(groupsData) ? groupsData : []);
         setLocations(Array.isArray(locationsData) ? locationsData : []);
-        setTechnicians(Array.isArray(techniciansData) ? techniciansData : []);
+
+        const techList = Array.isArray(techniciansData) ? techniciansData : [];
+        setAllTechnicians(techList);
+        setTechnicians(techList);
+        setGroupTechniciansMap(groupMapData || {});
       } catch (err) {
         console.error('Error al cargar datos:', err);
       } finally {
@@ -54,10 +61,29 @@ export default function TicketCreate() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    const numericValue = ['name', 'content'].includes(name) ? value : parseInt(value, 10) || 0;
+
     setFormData((prev) => ({
       ...prev,
-      [name]: ['name', 'content'].includes(name) ? value : parseInt(value, 10) || 0,
+      [name]: numericValue,
+      // Resetear técnico si cambia el grupo
+      ...(name === '_groups_id_assign' ? { _users_id_assign: 0 } : {}),
     }));
+
+    // Filtrar técnicos cuando cambia el grupo
+    if (name === '_groups_id_assign') {
+      const groupId = parseInt(value, 10);
+      if (groupId > 0 && groupTechniciansMap[groupId]) {
+        // Filtrar técnicos que pertenecen al grupo seleccionado
+        const techIds = groupTechniciansMap[groupId];
+        const filteredTechs = allTechnicians.filter(t => techIds.includes(t.id));
+        setTechnicians(filteredTechs);
+        console.log(`🔍 Técnicos del grupo ${groupId}:`, filteredTechs.map(t => t.name));
+      } else {
+        // Sin grupo seleccionado, mostrar todos los técnicos
+        setTechnicians(allTechnicians);
+      }
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -240,6 +266,11 @@ export default function TicketCreate() {
                   <label htmlFor="_users_id_assign">
                     <User size={16} style={{ marginRight: 4, verticalAlign: 'middle' }} />
                     Asignar a (Técnico)
+                    {formData._groups_id_assign > 0 && technicians.length > 0 && (
+                      <span style={{ fontSize: '11px', color: '#666', marginLeft: 8 }}>
+                        ({technicians.length} del grupo)
+                      </span>
+                    )}
                   </label>
                   <select
                     id="_users_id_assign"
@@ -247,7 +278,13 @@ export default function TicketCreate() {
                     value={formData._users_id_assign}
                     onChange={handleChange}
                   >
-                    <option value={0}>-- Sin asignar --</option>
+                    <option value={0}>
+                      {formData._groups_id_assign > 0
+                        ? technicians.length > 0
+                          ? '-- Seleccionar técnico del grupo --'
+                          : '-- No hay técnicos en este grupo --'
+                        : '-- Sin asignar --'}
+                    </option>
                     {technicians.map((tech) => (
                       <option key={tech.id} value={tech.id}>
                         {tech.realname ? `${tech.realname} ${tech.firstname || ''}`.trim() : tech.name}

@@ -70,6 +70,8 @@ export default function TicketDetail() {
 
   // Estados para asignación
   const [technicians, setTechnicians] = useState([]);
+  const [allTechnicians, setAllTechnicians] = useState([]);
+  const [groupTechniciansMap, setGroupTechniciansMap] = useState({});
   const [groups, setGroups] = useState([]);
   const [selectedTechnician, setSelectedTechnician] = useState('');
   const [selectedGroup, setSelectedGroup] = useState('');
@@ -135,6 +137,16 @@ export default function TicketDetail() {
       if (canAssign) {
         const assignees = await glpiApi.getTicketAssignees(id);
         setCurrentAssignees(assignees);
+
+        // Filtrar técnicos si hay grupo asignado
+        const currentGroup = assignees.groups.find(a => a.type === 2);
+        if (currentGroup && groupTechniciansMap[currentGroup.groups_id]) {
+          const techIds = groupTechniciansMap[currentGroup.groups_id];
+          const filteredTechs = allTechnicians.filter(t => techIds.includes(t.id));
+          if (filteredTechs.length > 0) {
+            setTechnicians(filteredTechs);
+          }
+        }
       }
     } catch (err) {
       setError(err.message);
@@ -202,12 +214,16 @@ export default function TicketDetail() {
   const fetchAssignmentOptions = useCallback(async () => {
     if (!canAssign) return;
     try {
-      const [techData, groupData] = await Promise.all([
+      const [techData, groupData, groupMapData] = await Promise.all([
         glpiApi.getTechnicians().catch(() => []),
         glpiApi.getGroups().catch(() => []),
+        glpiApi.getGroupTechniciansMap().catch(() => ({})),
       ]);
-      setTechnicians(Array.isArray(techData) ? techData : []);
+      const techList = Array.isArray(techData) ? techData : [];
+      setAllTechnicians(techList);
+      setTechnicians(techList);
       setGroups(Array.isArray(groupData) ? groupData : []);
+      setGroupTechniciansMap(groupMapData || {});
     } catch (err) {
       console.error('Error fetching assignment options:', err);
     }
@@ -1366,13 +1382,23 @@ Mesa de Ayuda - Entersys
               <h4>
                 <User size={16} />
                 Técnico Asignado
+                {(() => {
+                  const currentGroup = currentAssignees.groups.find(a => a.type === 2);
+                  if (currentGroup && technicians.length < allTechnicians.length) {
+                    return (
+                      <span style={{ fontSize: '11px', color: '#666', marginLeft: 8, fontWeight: 'normal' }}>
+                        ({technicians.length} del grupo)
+                      </span>
+                    );
+                  }
+                  return null;
+                })()}
               </h4>
               {(() => {
                 const currentTech = currentAssignees.users.find((a) => a.type === 2);
                 const currentTechId = currentTech?.users_id || '';
-                const currentTechName = currentTechId
-                  ? technicians.find((t) => t.id === currentTechId)?.name || `Usuario #${currentTechId}`
-                  : '';
+                const currentGroup = currentAssignees.groups.find(a => a.type === 2);
+                const hasGroupFilter = currentGroup && technicians.length < allTechnicians.length;
 
                 return (
                   <div className="single-assignee">
@@ -1405,7 +1431,13 @@ Mesa de Ayuda - Entersys
                       disabled={assigning}
                       className="single-select"
                     >
-                      <option value="">-- Sin técnico --</option>
+                      <option value="">
+                        {hasGroupFilter
+                          ? technicians.length > 0
+                            ? '-- Seleccionar técnico del grupo --'
+                            : '-- No hay técnicos en este grupo --'
+                          : '-- Sin técnico --'}
+                      </option>
                       {technicians.map((tech) => (
                         <option key={tech.id} value={tech.id}>
                           {tech.name} {tech.realname ? `(${tech.realname})` : ''}
@@ -1448,6 +1480,19 @@ Mesa de Ayuda - Entersys
                             await glpiApi.assignTicketToGroup(id, parseInt(newGroupId, 10));
                             const groupName = groups.find(g => g.id === parseInt(newGroupId, 10))?.name || `Grupo #${newGroupId}`;
                             await glpiApi.addTicketFollowup(id, `[ASIGNACIÓN] ${user?.glpiname || 'Sistema'} asignó el ticket al grupo: ${groupName}`);
+
+                            // Filtrar técnicos por el nuevo grupo
+                            const groupId = parseInt(newGroupId, 10);
+                            if (groupTechniciansMap[groupId]) {
+                              const techIds = groupTechniciansMap[groupId];
+                              const filteredTechs = allTechnicians.filter(t => techIds.includes(t.id));
+                              setTechnicians(filteredTechs);
+                            } else {
+                              setTechnicians(allTechnicians);
+                            }
+                          } else {
+                            // Sin grupo, mostrar todos los técnicos
+                            setTechnicians(allTechnicians);
                           }
                           setSuccess(newGroupId ? 'Grupo asignado' : 'Grupo removido');
                           fetchTicket();
