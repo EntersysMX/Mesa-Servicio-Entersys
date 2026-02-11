@@ -774,6 +774,76 @@ class GlpiApiService {
     }
   }
 
+  // Obtener técnicos de un grupo específico
+  async getTechniciansByGroup(groupId) {
+    try {
+      console.log(`🔍 Obteniendo técnicos del grupo ${groupId}...`);
+
+      // Obtener usuarios del grupo
+      const groupUsers = await this.api.get(`/Group/${groupId}/Group_User`);
+      const userIds = (groupUsers.data || []).map(gu => gu.users_id);
+
+      if (userIds.length === 0) {
+        console.log('⚠️ No hay usuarios en este grupo');
+        return [];
+      }
+
+      console.log(`👥 IDs de usuarios en grupo: ${userIds.join(', ')}`);
+
+      // Obtener todos los técnicos
+      const allTechnicians = await this.getTechnicians();
+
+      // Filtrar solo los que pertenecen al grupo
+      const groupTechnicians = allTechnicians.filter(tech =>
+        userIds.includes(tech.id)
+      );
+
+      console.log(`✅ Técnicos del grupo: ${groupTechnicians.length}`);
+      groupTechnicians.forEach(t => console.log(`   - ${t.realname || t.name} (ID:${t.id})`));
+
+      return groupTechnicians;
+    } catch (error) {
+      console.error('Error obteniendo técnicos del grupo:', error);
+      return [];
+    }
+  }
+
+  // Obtener mapeo de grupos a técnicos
+  async getGroupTechniciansMap() {
+    try {
+      console.log('🗺️ Cargando mapeo de grupos-técnicos...');
+
+      // Obtener todos los Group_User
+      const response = await this.api.get('/Group_User', { params: { range: '0-500' } });
+      const groupUsers = response.data || [];
+
+      // Obtener todos los técnicos
+      const technicians = await this.getTechnicians();
+      const technicianIds = new Set(technicians.map(t => t.id));
+
+      // Crear mapeo: groupId -> [technicianIds]
+      const groupMap = {};
+      groupUsers.forEach(gu => {
+        const groupId = gu.groups_id;
+        const userId = gu.users_id;
+
+        // Solo incluir si es técnico
+        if (technicianIds.has(userId)) {
+          if (!groupMap[groupId]) {
+            groupMap[groupId] = [];
+          }
+          groupMap[groupId].push(userId);
+        }
+      });
+
+      console.log('✅ Mapeo de grupos cargado:', groupMap);
+      return groupMap;
+    } catch (error) {
+      console.error('Error obteniendo mapeo de grupos:', error);
+      return {};
+    }
+  }
+
   // Asignar ticket a grupo
   async assignTicketToGroup(ticketId, groupId) {
     try {
