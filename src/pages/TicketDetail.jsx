@@ -1414,14 +1414,32 @@ Mesa de Ayuda - Entersys
                           if (currentTech) {
                             await glpiApi.removeTicketUserAssignment(currentTech.id);
                           }
+
+                          let newTechAssignment = null;
+
                           // Asignar nuevo técnico si se seleccionó uno
                           if (newTechId) {
-                            await glpiApi.assignTicketToUser(id, parseInt(newTechId, 10));
+                            const result = await glpiApi.assignTicketToUser(id, parseInt(newTechId, 10));
                             const techName = technicians.find(t => t.id === parseInt(newTechId, 10))?.name || `Usuario #${newTechId}`;
                             await glpiApi.addTicketFollowup(id, `[ASIGNACIÓN] ${user?.glpiname || 'Sistema'} asignó el ticket al técnico: ${techName}`);
+
+                            // Crear nuevo objeto de asignación para actualizar estado local
+                            newTechAssignment = {
+                              id: result?.id || Date.now(),
+                              users_id: parseInt(newTechId, 10),
+                              type: 2,
+                            };
                           }
+
+                          // Actualizar estado local sin recargar toda la página
+                          setCurrentAssignees(prev => ({
+                            ...prev,
+                            users: newTechAssignment
+                              ? [...prev.users.filter(u => u.type !== 2), newTechAssignment]
+                              : prev.users.filter(u => u.type !== 2),
+                          }));
+
                           setSuccess(newTechId ? 'Técnico asignado' : 'Técnico removido');
-                          fetchTicket();
                         } catch (err) {
                           setError(err.message);
                         } finally {
@@ -1475,11 +1493,21 @@ Mesa de Ayuda - Entersys
                           if (currentGroup) {
                             await glpiApi.removeTicketGroupAssignment(currentGroup.id);
                           }
+
+                          let newGroupAssignment = null;
+
                           // Asignar nuevo grupo si se seleccionó uno
                           if (newGroupId) {
-                            await glpiApi.assignTicketToGroup(id, parseInt(newGroupId, 10));
+                            const result = await glpiApi.assignTicketToGroup(id, parseInt(newGroupId, 10));
                             const groupName = groups.find(g => g.id === parseInt(newGroupId, 10))?.name || `Grupo #${newGroupId}`;
                             await glpiApi.addTicketFollowup(id, `[ASIGNACIÓN] ${user?.glpiname || 'Sistema'} asignó el ticket al grupo: ${groupName}`);
+
+                            // Crear nuevo objeto de asignación para actualizar estado local
+                            newGroupAssignment = {
+                              id: result?.id || Date.now(),
+                              groups_id: parseInt(newGroupId, 10),
+                              type: 2,
+                            };
 
                             // Filtrar técnicos por el nuevo grupo
                             const groupId = parseInt(newGroupId, 10);
@@ -1494,8 +1522,16 @@ Mesa de Ayuda - Entersys
                             // Sin grupo, mostrar todos los técnicos
                             setTechnicians(allTechnicians);
                           }
+
+                          // Actualizar estado local sin recargar toda la página
+                          setCurrentAssignees(prev => ({
+                            ...prev,
+                            groups: newGroupAssignment
+                              ? [...prev.groups.filter(g => g.type !== 2), newGroupAssignment]
+                              : prev.groups.filter(g => g.type !== 2),
+                          }));
+
                           setSuccess(newGroupId ? 'Grupo asignado' : 'Grupo removido');
-                          fetchTicket();
                         } catch (err) {
                           setError(err.message);
                         } finally {
