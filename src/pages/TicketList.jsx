@@ -85,12 +85,18 @@ export default function TicketList() {
   // Datos auxiliares
   const [technicians, setTechnicians] = useState([]);
   const [groups, setGroups] = useState([]);
+  const [allTechnicians, setAllTechnicians] = useState([]);
+  const [groupTechniciansMap, setGroupTechniciansMap] = useState({});
+
+  // Cache de asignaciones de tickets
+  const [ticketAssignments, setTicketAssignments] = useState({});
 
   // Modal de asignación rápida
   const [showQuickAssign, setShowQuickAssign] = useState(null);
   const [quickAssignTech, setQuickAssignTech] = useState('');
   const [quickAssignGroup, setQuickAssignGroup] = useState('');
   const [assigning, setAssigning] = useState(false);
+  const [filteredTechnicians, setFilteredTechnicians] = useState([]);
 
   const userId = user?.glpiID;
 
@@ -126,12 +132,17 @@ export default function TicketList() {
     const loadAuxData = async () => {
       if (isAdmin || isTechnician) {
         try {
-          const [techData, groupData] = await Promise.all([
+          const [techData, groupData, groupMapData] = await Promise.all([
             glpiApi.getTechnicians().catch(() => []),
             glpiApi.getGroups().catch(() => []),
+            glpiApi.getGroupTechniciansMap().catch(() => ({})),
           ]);
-          setTechnicians(Array.isArray(techData) ? techData : []);
+          const techList = Array.isArray(techData) ? techData : [];
+          setTechnicians(techList);
+          setAllTechnicians(techList);
+          setFilteredTechnicians(techList);
           setGroups(Array.isArray(groupData) ? groupData : []);
+          setGroupTechniciansMap(groupMapData || {});
         } catch (err) {
           console.error('Error loading aux data:', err);
         }
@@ -139,6 +150,58 @@ export default function TicketList() {
     };
     loadAuxData();
   }, [isAdmin, isTechnician]);
+
+  // Cargar asignaciones de tickets cuando cambia la lista
+  useEffect(() => {
+    const loadAssignments = async () => {
+      if (tickets.length === 0) return;
+
+      const assignments = {};
+      // Cargar asignaciones para cada ticket
+      await Promise.all(
+        tickets.map(async (ticket) => {
+          const ticketId = ticket.id || ticket[2];
+          try {
+            const assignees = await glpiApi.getTicketAssignees(ticketId);
+            const assignedUser = assignees.users.find(u => u.type === 2);
+            const assignedGroup = assignees.groups.find(g => g.type === 2);
+
+            if (assignedUser || assignedGroup) {
+              // Buscar nombre del técnico
+              let techName = null;
+              if (assignedUser?.users_id) {
+                const tech = technicians.find(t => Number(t.id) === Number(assignedUser.users_id));
+                techName = tech ? (tech.realname ? `${tech.realname} ${tech.firstname || ''}`.trim() : tech.name) : `ID:${assignedUser.users_id}`;
+              }
+
+              // Buscar nombre del grupo
+              let groupName = null;
+              if (assignedGroup?.groups_id) {
+                const grp = groups.find(g => Number(g.id) === Number(assignedGroup.groups_id));
+                groupName = grp?.name || `Grupo #${assignedGroup.groups_id}`;
+              }
+
+              assignments[ticketId] = {
+                userId: assignedUser?.users_id,
+                userName: techName,
+                userAssignmentId: assignedUser?.id,
+                groupId: assignedGroup?.groups_id,
+                groupName: groupName,
+                groupAssignmentId: assignedGroup?.id,
+              };
+            }
+          } catch (e) {
+            // Ignorar errores individuales
+          }
+        })
+      );
+      setTicketAssignments(assignments);
+    };
+
+    if (technicians.length > 0 || groups.length > 0) {
+      loadAssignments();
+    }
+  }, [tickets, technicians, groups]);
 
   // Función principal de búsqueda
   const fetchTickets = useCallback(async () => {
@@ -310,6 +373,20 @@ export default function TicketList() {
     setPage(0);
   };
 
+  // Filtrar técnicos cuando cambia el grupo en el modal
+  const handleQuickGroupChange = (groupId) => {
+    setQuickAssignGroup(groupId);
+    setQuickAssignTech(''); // Reset técnico
+
+    if (groupId && groupTechniciansMap[groupId]) {
+      const techIds = groupTechniciansMap[groupId];
+      const filtered = allTechnicians.filter(t => techIds.includes(Number(t.id)));
+      setFilteredTechnicians(filtered);
+    } else {
+      setFilteredTechnicians(allTechnicians);
+    }
+  };
+
   const handleQuickAssign = async (ticketId) => {
     if (!quickAssignTech && !quickAssignGroup) {
       setError('Selecciona un técnico o grupo');
@@ -318,22 +395,58 @@ export default function TicketList() {
 
     setAssigning(true);
     try {
+      // Verificar asignaciones existentes
+      const currentAssignment = ticketAssignments[ticketId];
+
+      // Si hay técnico nuevo y ya existía uno, primero eliminar el anterior
       if (quickAssignTech) {
+        if (currentAssignment?.userAssignmentId) {
+          await glpiApi.removeTicketUserAssignment(currentAssignment.userAssignmentId).catch(() => {});
+        }
         await glpiApi.assignTicketToUser(ticketId, parseInt(quickAssignTech, 10));
       }
+
+      // Si hay grupo nuevo y ya existía uno, primero eliminar el anterior
       if (quickAssignGroup) {
+        if (currentAssignment?.groupAssignmentId) {
+          await glpiApi.removeTicketGroupAssignment(currentAssignment.groupAssignmentId).catch(() => {});
+        }
         await glpiApi.assignTicketToGroup(ticketId, parseInt(quickAssignGroup, 10));
       }
+
       setShowQuickAssign(null);
       setQuickAssignTech('');
       setQuickAssignGroup('');
+      setFilteredTechnicians(allTechnicians);
       fetchTickets();
-      fetchStats(); // Actualizar estadísticas
+      fetchStats();
     } catch (err) {
-      setError(err.message);
+      setError('Error al asignar: ' + err.message);
     } finally {
       setAssigning(false);
     }
+  };
+
+  // Al abrir el modal, precargar asignaciones existentes
+  const openQuickAssign = (ticketId) => {
+    const current = ticketAssignments[ticketId];
+    if (current) {
+      setQuickAssignGroup(current.groupId?.toString() || '');
+      setQuickAssignTech(current.userId?.toString() || '');
+      // Filtrar técnicos si hay grupo
+      if (current.groupId && groupTechniciansMap[current.groupId]) {
+        const techIds = groupTechniciansMap[current.groupId];
+        const filtered = allTechnicians.filter(t => techIds.includes(Number(t.id)));
+        setFilteredTechnicians(filtered);
+      } else {
+        setFilteredTechnicians(allTechnicians);
+      }
+    } else {
+      setQuickAssignGroup('');
+      setQuickAssignTech('');
+      setFilteredTechnicians(allTechnicians);
+    }
+    setShowQuickAssign(ticketId);
   };
 
   // Helpers de presentación
@@ -818,10 +931,35 @@ export default function TicketList() {
                         )}
                       </td>
                       <td className="ticket-assigned">
-                        {assignedUser && assignedUser !== 0 ? (
-                          <span className="assigned-user">
+                        {ticketAssignments[ticketId]?.userName ? (
+                          <span className="assigned-user" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                             <User size={14} />
-                            {assignedUserName || `Usuario #${assignedUser}`}
+                            {ticketAssignments[ticketId].userName}
+                            {(isAdmin || isTechnician) && (
+                              <button
+                                className="btn-quick-assign"
+                                onClick={() => openQuickAssign(ticketId)}
+                                title="Cambiar asignación"
+                                style={{ marginLeft: '4px' }}
+                              >
+                                <UserPlus size={12} />
+                              </button>
+                            )}
+                          </span>
+                        ) : ticketAssignments[ticketId]?.groupName ? (
+                          <span className="assigned-group" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Users size={14} />
+                            {ticketAssignments[ticketId].groupName}
+                            {(isAdmin || isTechnician) && (
+                              <button
+                                className="btn-quick-assign"
+                                onClick={() => openQuickAssign(ticketId)}
+                                title="Cambiar asignación"
+                                style={{ marginLeft: '4px' }}
+                              >
+                                <UserPlus size={12} />
+                              </button>
+                            )}
                           </span>
                         ) : (
                           <span className="unassigned">
@@ -829,7 +967,7 @@ export default function TicketList() {
                             {(isAdmin || isTechnician) && (
                               <button
                                 className="btn-quick-assign"
-                                onClick={() => setShowQuickAssign(ticketId)}
+                                onClick={() => openQuickAssign(ticketId)}
                                 title="Asignar"
                               >
                                 <UserPlus size={14} />
@@ -853,7 +991,7 @@ export default function TicketList() {
                         {(isAdmin || isTechnician) && (
                           <button
                             className="btn btn-sm btn-icon"
-                            onClick={() => setShowQuickAssign(ticketId)}
+                            onClick={() => openQuickAssign(ticketId)}
                             title="Asignar"
                           >
                             <UserPlus size={14} />
@@ -909,23 +1047,7 @@ export default function TicketList() {
               </button>
             </div>
             <div className="modal-body">
-              <div className="form-group">
-                <label>
-                  <User size={16} />
-                  Técnico
-                </label>
-                <select
-                  value={quickAssignTech}
-                  onChange={(e) => setQuickAssignTech(e.target.value)}
-                >
-                  <option value="">-- Seleccionar técnico --</option>
-                  {technicians.map((tech) => (
-                    <option key={tech.id} value={tech.id}>
-                      {tech.name} {tech.realname ? `(${tech.realname})` : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {/* Grupo primero */}
               <div className="form-group">
                 <label>
                   <Users size={16} />
@@ -933,12 +1055,41 @@ export default function TicketList() {
                 </label>
                 <select
                   value={quickAssignGroup}
-                  onChange={(e) => setQuickAssignGroup(e.target.value)}
+                  onChange={(e) => handleQuickGroupChange(e.target.value)}
                 >
                   <option value="">-- Seleccionar grupo --</option>
                   {groups.map((group) => (
                     <option key={group.id} value={group.id}>
-                      {group.name}
+                      {group.completename || group.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {/* Técnico después */}
+              <div className="form-group">
+                <label>
+                  <User size={16} />
+                  Técnico
+                  {quickAssignGroup && filteredTechnicians.length > 0 && (
+                    <span style={{ fontSize: '11px', color: '#666', marginLeft: 8 }}>
+                      ({filteredTechnicians.length} del grupo)
+                    </span>
+                  )}
+                </label>
+                <select
+                  value={quickAssignTech}
+                  onChange={(e) => setQuickAssignTech(e.target.value)}
+                >
+                  <option value="">
+                    {quickAssignGroup
+                      ? filteredTechnicians.length > 0
+                        ? '-- Seleccionar técnico del grupo --'
+                        : '-- No hay técnicos en este grupo --'
+                      : '-- Seleccionar técnico --'}
+                  </option>
+                  {filteredTechnicians.map((tech) => (
+                    <option key={tech.id} value={tech.id}>
+                      {tech.realname ? `${tech.realname} ${tech.firstname || ''}`.trim() : tech.name}
                     </option>
                   ))}
                 </select>
