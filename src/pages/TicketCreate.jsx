@@ -2,7 +2,20 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import glpiApi from '../services/glpiApi';
-import { ArrowLeft, Save, AlertCircle, Folder, Users, User, MapPin } from 'lucide-react';
+import {
+  ArrowLeft,
+  Save,
+  AlertCircle,
+  Folder,
+  Users,
+  User,
+  MapPin,
+  Upload,
+  Paperclip,
+  Image,
+  File,
+  X,
+} from 'lucide-react';
 
 export default function TicketCreate() {
   const navigate = useNavigate();
@@ -18,6 +31,10 @@ export default function TicketCreate() {
   const [technicians, setTechnicians] = useState([]);
   const [allTechnicians, setAllTechnicians] = useState([]);
   const [groupTechniciansMap, setGroupTechniciansMap] = useState({});
+
+  // Estados para archivos adjuntos
+  const [attachedFiles, setAttachedFiles] = useState([]);
+  const [dragActive, setDragActive] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -60,6 +77,41 @@ export default function TicketCreate() {
     };
     fetchData();
   }, []);
+
+  // Manejar drag and drop de archivos
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFiles(e.dataTransfer.files);
+    }
+  };
+
+  const handleFileInput = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      handleFiles(e.target.files);
+    }
+  };
+
+  const handleFiles = (files) => {
+    const newFiles = Array.from(files);
+    setAttachedFiles(prev => [...prev, ...newFiles]);
+  };
+
+  const removeFile = (index) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -126,6 +178,19 @@ export default function TicketCreate() {
         // Asignar explícitamente el solicitante (usuario logueado)
         if (requesterId) {
           await glpiApi.assignTicketRequester(ticketId, requesterId).catch(console.error);
+        }
+
+        // Subir archivos adjuntos
+        if (attachedFiles.length > 0) {
+          console.log(`📎 Subiendo ${attachedFiles.length} archivos...`);
+          for (const file of attachedFiles) {
+            try {
+              await glpiApi.uploadDocument(file, ticketId);
+              console.log(`✅ Archivo subido: ${file.name}`);
+            } catch (uploadErr) {
+              console.error(`❌ Error subiendo ${file.name}:`, uploadErr);
+            }
+          }
         }
 
         // Asignar grupo si se seleccionó
@@ -235,6 +300,65 @@ export default function TicketCreate() {
                   </select>
                 </div>
               </div>
+            </div>
+
+            {/* Sección de Archivos Adjuntos */}
+            <div className="form-section">
+              <h2>
+                <Paperclip size={18} style={{ marginRight: 8, verticalAlign: 'middle' }} />
+                Evidencias / Archivos Adjuntos
+              </h2>
+
+              <div
+                className={`file-drop-zone ${dragActive ? 'drag-active' : ''}`}
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+              >
+                <input
+                  type="file"
+                  id="file-upload-create"
+                  multiple
+                  onChange={handleFileInput}
+                  style={{ display: 'none' }}
+                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.msg,.eml"
+                />
+                <label htmlFor="file-upload-create" className="file-drop-label">
+                  <Upload size={32} />
+                  <span>Arrastra archivos aquí o <strong>haz clic para seleccionar</strong></span>
+                  <small>Imágenes, PDF, documentos de Office, correos (.msg, .eml)</small>
+                </label>
+              </div>
+
+              {/* Lista de archivos seleccionados */}
+              {attachedFiles.length > 0 && (
+                <div className="attached-files-list">
+                  <h4>
+                    <Paperclip size={14} />
+                    Archivos a adjuntar ({attachedFiles.length}):
+                  </h4>
+                  {attachedFiles.map((file, index) => (
+                    <div key={index} className="attached-file-item">
+                      {file.type.startsWith('image/') ? (
+                        <Image size={18} className="file-icon" />
+                      ) : (
+                        <File size={18} className="file-icon" />
+                      )}
+                      <span className="file-name">{file.name}</span>
+                      <span className="file-size">({(file.size / 1024).toFixed(1)} KB)</span>
+                      <button
+                        type="button"
+                        onClick={() => removeFile(index)}
+                        className="remove-file-btn"
+                        title="Quitar archivo"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="form-section">
@@ -379,7 +503,7 @@ export default function TicketCreate() {
               </button>
               <button type="submit" className="btn btn-primary" disabled={loading}>
                 <Save size={18} />
-                {loading ? 'Guardando...' : 'Crear Ticket'}
+                {loading ? (attachedFiles.length > 0 ? 'Subiendo archivos...' : 'Guardando...') : 'Crear Ticket'}
               </button>
             </div>
           </>
