@@ -865,18 +865,41 @@ class GlpiApiService {
     }
   }
 
-  // Asignar ticket a usuario
+  // Asignar ticket a usuario (técnico)
   async assignTicketToUser(ticketId, userId) {
     try {
       const response = await this.api.post('/Ticket_User', {
         input: {
           tickets_id: ticketId,
           users_id: userId,
-          type: 2, // 2 = asignado
+          type: 2, // 2 = asignado (técnico)
         },
       });
       return response.data;
     } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  // Asignar solicitante al ticket
+  async assignTicketRequester(ticketId, userId) {
+    try {
+      console.log(`👤 Asignando solicitante ${userId} al ticket ${ticketId}`);
+      const response = await this.api.post('/Ticket_User', {
+        input: {
+          tickets_id: ticketId,
+          users_id: userId,
+          type: 1, // 1 = solicitante (requester)
+        },
+      });
+      console.log('✅ Solicitante asignado correctamente');
+      return response.data;
+    } catch (error) {
+      // Si ya existe, ignorar el error
+      if (error.response?.data?.[1]?.includes('Duplicate')) {
+        console.log('ℹ️ El solicitante ya estaba asignado');
+        return { already_exists: true };
+      }
       throw this.handleError(error);
     }
   }

@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import glpiApi from '../services/glpiApi';
 import { ArrowLeft, Save, AlertCircle, Folder, Users, User, MapPin } from 'lucide-react';
 
 export default function TicketCreate() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState(null);
@@ -98,6 +100,10 @@ export default function TicketCreate() {
     setError(null);
 
     try {
+      // Obtener el ID del usuario logueado (solicitante)
+      const requesterId = user?.glpiID;
+      console.log('👤 Usuario logueado (solicitante):', user?.glpiname, 'ID:', requesterId);
+
       // Preparar datos del ticket con origen Portal
       const ticketData = {
         name: formData.name,
@@ -108,6 +114,8 @@ export default function TicketCreate() {
         priority: formData.priority,
         itilcategories_id: formData.itilcategories_id || undefined,
         locations_id: formData.locations_id || undefined,
+        // Establecer el solicitante como el usuario logueado
+        _users_id_requester: requesterId || undefined,
       };
 
       // Crear el ticket
@@ -115,6 +123,11 @@ export default function TicketCreate() {
       const ticketId = result.id;
 
       if (ticketId) {
+        // Asignar explícitamente el solicitante (usuario logueado)
+        if (requesterId) {
+          await glpiApi.assignTicketRequester(ticketId, requesterId).catch(console.error);
+        }
+
         // Asignar grupo si se seleccionó
         if (formData._groups_id_assign > 0) {
           await glpiApi.assignTicketToGroup(ticketId, formData._groups_id_assign).catch(console.error);
