@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import TicketList from './pages/TicketList';
 import TicketCreate from './pages/TicketCreate';
 import TicketDetail from './pages/TicketDetail';
+import TicketEdit from './pages/TicketEdit';
 import MyTickets from './pages/MyTickets';
 import KanbanBoard from './pages/KanbanBoard';
 import ChangePassword from './pages/ChangePassword';
@@ -87,6 +88,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <TicketDetail />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/tickets/:id/edit"
+        element={
+          <ProtectedRoute>
+            <TicketEdit />
           </ProtectedRoute>
         }
       />
