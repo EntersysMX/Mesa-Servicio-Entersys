@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import glpiApi from '../services/glpiApi';
 import {
@@ -13,18 +13,27 @@ import {
   Filter,
   X,
   Info,
+  Edit3,
+  XCircle,
+  Trash2,
+  User,
+  UserCheck,
 } from 'lucide-react';
 
 export default function MyTickets() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [filter, setFilter] = useState('all'); // all, open, closed
+  const [filter, setFilter] = useState('all'); // all, open, closed, created, assigned
   const [searchTerm, setSearchTerm] = useState('');
   const [debugInfo, setDebugInfo] = useState(null);
   const [showDebug, setShowDebug] = useState(false);
   const [userEmail, setUserEmail] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(null);
+  const [showCancelModal, setShowCancelModal] = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   // Obtener ID del usuario de varias fuentes posibles
   const userId = user?.glpiID || user?.id || user?.users_id;
@@ -61,184 +70,112 @@ export default function MyTickets() {
     console.log('🎫 CARGANDO TICKETS DEL USUARIO');
     console.log('========================================');
     console.log('🎫 User ID:', userId);
-    console.log('🎫 GLPI ID:', user?.glpiID);
     console.log('🎫 GLPI Name:', user?.glpiname);
-    console.log('🎫 Perfil activo:', user?.glpiactiveprofile);
-    console.log('🎫 Datos completos de sesión:', user);
 
     setLoading(true);
     setError(null);
 
     try {
-      let ticketsFound = [];
+      let allTickets = [];
+      const ticketMap = new Map(); // Para evitar duplicados
 
-      // Método 1: Usar el nuevo método getMyTickets
-      console.log('📋 Método 1: Usando getMyTickets...');
+      // Obtener Ticket_User para identificar tickets creados y asignados
+      console.log('📋 Obteniendo relaciones Ticket_User...');
       try {
-        const myTickets = await glpiApi.getMyTickets({ range: '0-100' });
-        console.log('📋 Respuesta de getMyTickets:', myTickets);
+        const ticketUsers = await glpiApi.getItems('Ticket_User', { range: '0-500' });
 
-        if (Array.isArray(myTickets) && myTickets.length > 0) {
-          console.log(`✅ Método 1: ${myTickets.length} tickets encontrados`);
-          ticketsFound = myTickets;
-        } else {
-          console.log('⚠️ Método 1: No hay tickets o respuesta vacía');
-        }
-      } catch (e) {
-        console.log('❌ Método 1 falló:', e.message);
-      }
-
-      // Método 1b: Obtener tickets directamente (fallback)
-      if (ticketsFound.length === 0) {
-        console.log('📋 Método 1b: Obteniendo todos los tickets accesibles...');
-        try {
-          const allTickets = await glpiApi.getTickets({ range: '0-100' });
-          console.log('📋 Respuesta de getTickets:', allTickets);
-
-          if (Array.isArray(allTickets) && allTickets.length > 0) {
-            console.log(`✅ Método 1b: ${allTickets.length} tickets encontrados`);
-            ticketsFound = allTickets;
-          } else {
-            console.log('⚠️ Método 1b: No hay tickets o respuesta vacía');
-          }
-        } catch (e) {
-          console.log('❌ Método 1b falló:', e.message);
-        }
-      }
-
-      // Método 2: Buscar tickets donde el usuario es solicitante (requester)
-      if (ticketsFound.length === 0 && userId) {
-        console.log(`📋 Método 2: Buscando tickets creados por usuario ID ${userId}...`);
-        try {
-          const result = await glpiApi.getTicketsCreatedByUser(userId, {
-            range: '0-100',
+        if (Array.isArray(ticketUsers) && ticketUsers.length > 0) {
+          // Filtrar tickets donde el usuario actual está relacionado
+          const myTicketUsers = ticketUsers.filter(tu => {
+            const tuUserId = Number(tu.users_id || tu[3]);
+            return tuUserId === Number(userId);
           });
-          console.log('📋 Respuesta de getTicketsCreatedByUser:', result);
 
-          const ticketData = result.data || result || [];
-          if (Array.isArray(ticketData) && ticketData.length > 0) {
-            console.log(`✅ Método 2: ${ticketData.length} tickets encontrados`);
-            ticketsFound = ticketData;
-          } else {
-            console.log('⚠️ Método 2: No hay tickets');
-          }
-        } catch (e) {
-          console.log('❌ Método 2 falló:', e.message);
-        }
-      }
+          console.log(`📋 Relaciones del usuario: ${myTicketUsers.length}`);
 
-      // Método 3: Buscar con searchTicketsAdvanced
-      if (ticketsFound.length === 0 && userId) {
-        console.log(`📋 Método 3: Búsqueda avanzada por solicitante ID ${userId}...`);
-        try {
-          const result = await glpiApi.searchTicketsAdvanced(
-            { requesterId: userId },
-            { range: '0-100' }
-          );
-          console.log('📋 Respuesta de searchTicketsAdvanced:', result);
+          // Procesar cada relación
+          for (const tu of myTicketUsers) {
+            const ticketId = tu.tickets_id || tu[2];
+            const type = tu.type || tu[4]; // 1 = creador/solicitante, 2 = asignado
 
-          const ticketData = result.data || [];
-          if (Array.isArray(ticketData) && ticketData.length > 0) {
-            console.log(`✅ Método 3: ${ticketData.length} tickets encontrados`);
-            ticketsFound = ticketData;
-          } else {
-            console.log('⚠️ Método 3: No hay tickets');
-          }
-        } catch (e) {
-          console.log('❌ Método 3 falló:', e.message);
-        }
-      }
-
-      // Método 4: Obtener todos los Ticket_User del usuario actual
-      if (ticketsFound.length === 0 && userId) {
-        console.log(`📋 Método 4: Obteniendo Ticket_User directamente...`);
-        try {
-          // Usar getItems en lugar de search para evitar problemas de permisos
-          const ticketUsers = await glpiApi.getItems('Ticket_User', {
-            range: '0-200',
-          });
-          console.log('📋 Todos los Ticket_User:', ticketUsers);
-
-          if (Array.isArray(ticketUsers) && ticketUsers.length > 0) {
-            // Filtrar por el usuario actual como solicitante (type=1)
-            const myTicketUsers = ticketUsers.filter(tu => {
-              const tuUserId = tu.users_id || tu[3];
-              const tuType = tu.type || tu[4];
-              return tuUserId == userId && tuType == 1;
-            });
-
-            console.log('📋 Ticket_User del usuario actual:', myTicketUsers);
-
-            if (myTicketUsers.length > 0) {
-              // Extraer IDs de tickets
-              const ticketIds = myTicketUsers.map(tu => tu.tickets_id || tu[2]);
-              console.log('📋 IDs de tickets encontrados:', ticketIds);
-
-              // Obtener detalles de cada ticket
-              const ticketPromises = ticketIds.map(id =>
-                glpiApi.getTicket(id).catch(e => {
-                  console.log(`Error obteniendo ticket ${id}:`, e.message);
-                  return null;
-                })
-              );
-              const tickets = await Promise.all(ticketPromises);
-              ticketsFound = tickets.filter(t => t !== null);
-              console.log(`✅ Método 4: ${ticketsFound.length} tickets obtenidos`);
+            if (!ticketMap.has(ticketId)) {
+              ticketMap.set(ticketId, {
+                isCreator: type === 1,
+                isAssigned: type === 2,
+              });
+            } else {
+              const existing = ticketMap.get(ticketId);
+              if (type === 1) existing.isCreator = true;
+              if (type === 2) existing.isAssigned = true;
             }
           }
-        } catch (e) {
-          console.log('❌ Método 4 falló:', e.message);
+
+          // Obtener detalles de cada ticket
+          const ticketIds = Array.from(ticketMap.keys());
+          console.log(`📋 Obteniendo ${ticketIds.length} tickets...`);
+
+          const ticketPromises = ticketIds.map(id =>
+            glpiApi.getTicket(id).catch(e => {
+              console.log(`Error obteniendo ticket ${id}:`, e.message);
+              return null;
+            })
+          );
+          const tickets = await Promise.all(ticketPromises);
+
+          // Agregar información de tipo a cada ticket
+          allTickets = tickets
+            .filter(t => t !== null)
+            .map(t => {
+              const info = ticketMap.get(t.id);
+              return {
+                ...t,
+                _isCreator: info?.isCreator || false,
+                _isAssigned: info?.isAssigned || false,
+              };
+            });
+
+          console.log(`✅ ${allTickets.length} tickets encontrados`);
         }
+      } catch (e) {
+        console.log('❌ Error obteniendo Ticket_User:', e.message);
       }
 
-      // Método 5: Verificar sesión completa y tickets accesibles
-      if (ticketsFound.length === 0) {
-        console.log('📋 Método 5: Verificando permisos de sesión...');
+      // Fallback: usar getMyTickets
+      if (allTickets.length === 0) {
+        console.log('📋 Fallback: usando getMyTickets...');
         try {
-          const session = await glpiApi.getFullSession();
-          console.log('📋 Sesión completa:', session);
-          console.log('📋 Perfiles disponibles:', session?.session?.glpiprofiles);
-          console.log('📋 Entidades disponibles:', session?.session?.glpientities);
+          const myTickets = await glpiApi.getMyTickets({ range: '0-100' });
+          if (Array.isArray(myTickets) && myTickets.length > 0) {
+            allTickets = myTickets.map(t => ({ ...t, _isCreator: true, _isAssigned: false }));
+            console.log(`✅ Fallback: ${allTickets.length} tickets encontrados`);
+          }
         } catch (e) {
-          console.log('❌ Error obteniendo sesión:', e.message);
+          console.log('❌ Fallback falló:', e.message);
         }
       }
 
       console.log('========================================');
-      console.log(`🎫 TOTAL TICKETS ENCONTRADOS: ${ticketsFound.length}`);
+      console.log(`🎫 TOTAL TICKETS: ${allTickets.length}`);
+      console.log(`   - Creados: ${allTickets.filter(t => t._isCreator).length}`);
+      console.log(`   - Asignados: ${allTickets.filter(t => t._isAssigned).length}`);
       console.log('========================================');
 
-      setTickets(ticketsFound);
+      setTickets(allTickets);
 
-      // Guardar información de debug
-      const debug = {
+      // Debug info
+      setDebugInfo({
         userId: userId,
-        glpiID: user?.glpiID,
         glpiname: user?.glpiname,
         profile: user?.glpiactiveprofile?.name || 'Desconocido',
-        profileId: user?.glpiactiveprofile?.id,
-        entity: user?.glpiactive_entity,
-        ticketsFound: ticketsFound.length,
-      };
-      setDebugInfo(debug);
-
-      if (ticketsFound.length === 0) {
-        console.log('⚠️ No se encontraron tickets. Posibles causas:');
-        console.log('   1. El usuario no ha creado ningún ticket');
-        console.log('   2. El perfil Self-Service no tiene permisos de API para ver tickets');
-        console.log('   3. Los tickets están en otra entidad');
-      }
+        ticketsFound: allTickets.length,
+        created: allTickets.filter(t => t._isCreator).length,
+        assigned: allTickets.filter(t => t._isAssigned).length,
+      });
 
     } catch (err) {
       console.error('❌ Error cargando tickets:', err);
-      setError('No se pudieron cargar los tickets. Verifica tu conexión.');
+      setError('No se pudieron cargar los tickets.');
       setTickets([]);
-      setDebugInfo({
-        error: err.message,
-        userId: userId,
-        glpiID: user?.glpiID,
-        profile: user?.glpiactiveprofile?.name || 'Desconocido',
-      });
     } finally {
       setLoading(false);
     }
@@ -247,6 +184,45 @@ export default function MyTickets() {
   useEffect(() => {
     fetchTickets();
   }, [fetchTickets]);
+
+  // Editar ticket
+  const handleEdit = (ticketId) => {
+    navigate(`/tickets/${ticketId}/edit`);
+  };
+
+  // Cancelar ticket (cambiar estado a cerrado con motivo)
+  const handleCancel = async (ticketId) => {
+    setActionLoading(true);
+    try {
+      await glpiApi.updateTicket(ticketId, {
+        status: 6, // Cerrado
+      });
+      // Agregar seguimiento de cancelación
+      await glpiApi.addTicketFollowup(ticketId, '<p><strong>Ticket cancelado por el usuario.</strong></p>');
+      setShowCancelModal(null);
+      fetchTickets();
+    } catch (err) {
+      console.error('Error cancelando ticket:', err);
+      alert('Error al cancelar el ticket: ' + err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Eliminar ticket
+  const handleDelete = async (ticketId) => {
+    setActionLoading(true);
+    try {
+      await glpiApi.deleteTicket(ticketId);
+      setShowDeleteModal(null);
+      fetchTickets();
+    } catch (err) {
+      console.error('Error eliminando ticket:', err);
+      alert('Error al eliminar el ticket: ' + err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   const getStatusLabel = (status) => {
     const statusMap = {
@@ -269,6 +245,10 @@ export default function MyTickets() {
     if (filter === 'open' && ticketStatus >= 5) return false;
     if (filter === 'closed' && ticketStatus < 5) return false;
 
+    // Filtro por tipo (creados vs asignados)
+    if (filter === 'created' && !ticket._isCreator) return false;
+    if (filter === 'assigned' && !ticket._isAssigned) return false;
+
     // Filtro por búsqueda
     if (searchTerm && !ticketName.includes(searchTerm.toLowerCase())) {
       return false;
@@ -286,6 +266,9 @@ export default function MyTickets() {
     const status = t.status || t[12];
     return status >= 5;
   }).length;
+
+  const createdCount = tickets.filter(t => t._isCreator).length;
+  const assignedCount = tickets.filter(t => t._isAssigned).length;
 
   return (
     <div className="my-tickets-page">
@@ -327,6 +310,28 @@ export default function MyTickets() {
           <div>
             <span className="summary-value">{tickets.length}</span>
             <span className="summary-label">Total</span>
+          </div>
+        </div>
+        <div
+          className={`summary-card created ${filter === 'created' ? 'active' : ''}`}
+          onClick={() => setFilter('created')}
+          style={{ borderLeft: '3px solid #3b82f6' }}
+        >
+          <User size={24} />
+          <div>
+            <span className="summary-value">{createdCount}</span>
+            <span className="summary-label">Creados</span>
+          </div>
+        </div>
+        <div
+          className={`summary-card assigned ${filter === 'assigned' ? 'active' : ''}`}
+          onClick={() => setFilter('assigned')}
+          style={{ borderLeft: '3px solid #8b5cf6' }}
+        >
+          <UserCheck size={24} />
+          <div>
+            <span className="summary-value">{assignedCount}</span>
+            <span className="summary-label">Asignados</span>
           </div>
         </div>
         <div
@@ -388,6 +393,18 @@ export default function MyTickets() {
           onClick={() => setFilter('all')}
         >
           Todos ({tickets.length})
+        </button>
+        <button
+          className={`filter-tab ${filter === 'created' ? 'active' : ''}`}
+          onClick={() => setFilter('created')}
+        >
+          Mis Creados ({createdCount})
+        </button>
+        <button
+          className={`filter-tab ${filter === 'assigned' ? 'active' : ''}`}
+          onClick={() => setFilter('assigned')}
+        >
+          Asignados a mí ({assignedCount})
         </button>
         <button
           className={`filter-tab ${filter === 'open' ? 'active' : ''}`}
@@ -492,33 +509,266 @@ export default function MyTickets() {
             const ticketStatus = ticket.status || ticket[12];
             const ticketDate = ticket.date || ticket[15];
             const ticketDateMod = ticket.date_mod || ticket[19];
+            const isCreator = ticket._isCreator;
+            const isAssigned = ticket._isAssigned;
+            const isClosed = ticketStatus >= 5;
 
             const status = getStatusLabel(ticketStatus);
             const StatusIcon = status.icon;
 
             return (
-              <Link to={`/tickets/${ticketId}`} key={ticketId} className="ticket-card">
-                <div className="ticket-card-header">
-                  <span className="ticket-id">#{ticketId}</span>
-                  <span className={`badge ${status.class}`}>
-                    <StatusIcon size={14} />
-                    {status.label}
-                  </span>
-                </div>
-                <h3 className="ticket-title">{ticketName}</h3>
-                <div className="ticket-card-footer">
-                  <span className="ticket-date">
-                    Creado: {ticketDate ? new Date(ticketDate).toLocaleDateString('es-MX') : '-'}
-                  </span>
-                  {ticketDateMod && ticketDateMod !== ticketDate && (
-                    <span className="ticket-updated">
-                      Actualizado: {new Date(ticketDateMod).toLocaleDateString('es-MX')}
+              <div key={ticketId} className="ticket-card-wrapper">
+                <Link to={`/tickets/${ticketId}`} className="ticket-card">
+                  <div className="ticket-card-header">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span className="ticket-id">#{ticketId}</span>
+                      {/* Badges de tipo */}
+                      {isCreator && (
+                        <span className="badge" style={{
+                          backgroundColor: '#dbeafe',
+                          color: '#1d4ed8',
+                          fontSize: '0.7rem',
+                          padding: '2px 6px'
+                        }}>
+                          <User size={10} style={{ marginRight: '3px' }} />
+                          Creado
+                        </span>
+                      )}
+                      {isAssigned && (
+                        <span className="badge" style={{
+                          backgroundColor: '#ede9fe',
+                          color: '#6d28d9',
+                          fontSize: '0.7rem',
+                          padding: '2px 6px'
+                        }}>
+                          <UserCheck size={10} style={{ marginRight: '3px' }} />
+                          Asignado
+                        </span>
+                      )}
+                    </div>
+                    <span className={`badge ${status.class}`}>
+                      <StatusIcon size={14} />
+                      {status.label}
                     </span>
-                  )}
-                </div>
-              </Link>
+                  </div>
+                  <h3 className="ticket-title">{ticketName}</h3>
+                  <div className="ticket-card-footer">
+                    <span className="ticket-date">
+                      Creado: {ticketDate ? new Date(ticketDate).toLocaleDateString('es-MX') : '-'}
+                    </span>
+                    {ticketDateMod && ticketDateMod !== ticketDate && (
+                      <span className="ticket-updated">
+                        Actualizado: {new Date(ticketDateMod).toLocaleDateString('es-MX')}
+                      </span>
+                    )}
+                  </div>
+                </Link>
+
+                {/* Botones de acción - solo para tickets creados por el usuario */}
+                {isCreator && (
+                  <div className="ticket-actions" style={{
+                    display: 'flex',
+                    gap: '0.5rem',
+                    padding: '0.75rem 1rem',
+                    borderTop: '1px solid #e5e7eb',
+                    backgroundColor: '#f9fafb',
+                    borderRadius: '0 0 8px 8px',
+                  }}>
+                    <button
+                      onClick={(e) => { e.preventDefault(); handleEdit(ticketId); }}
+                      className="btn btn-sm"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '6px 12px',
+                        fontSize: '0.8rem',
+                        backgroundColor: '#3b82f6',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                      }}
+                      title="Editar ticket"
+                    >
+                      <Edit3 size={14} />
+                      Editar
+                    </button>
+                    {!isClosed && (
+                      <button
+                        onClick={(e) => { e.preventDefault(); setShowCancelModal(ticketId); }}
+                        className="btn btn-sm"
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          padding: '6px 12px',
+                          fontSize: '0.8rem',
+                          backgroundColor: '#f59e0b',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                        }}
+                        title="Cancelar ticket"
+                      >
+                        <XCircle size={14} />
+                        Cancelar
+                      </button>
+                    )}
+                    <button
+                      onClick={(e) => { e.preventDefault(); setShowDeleteModal(ticketId); }}
+                      className="btn btn-sm"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '6px 12px',
+                        fontSize: '0.8rem',
+                        backgroundColor: '#ef4444',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                      }}
+                      title="Eliminar ticket"
+                    >
+                      <Trash2 size={14} />
+                      Eliminar
+                    </button>
+                  </div>
+                )}
+              </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Modal de confirmación para cancelar */}
+      {showCancelModal && (
+        <div className="modal-overlay" style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+        }}>
+          <div className="modal-content" style={{
+            backgroundColor: 'white',
+            padding: '2rem',
+            borderRadius: '12px',
+            maxWidth: '400px',
+            width: '90%',
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
+          }}>
+            <h3 style={{ marginBottom: '1rem', color: '#f59e0b' }}>
+              <XCircle size={24} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+              Cancelar Ticket
+            </h3>
+            <p style={{ marginBottom: '1.5rem', color: '#6b7280' }}>
+              ¿Estás seguro de que deseas cancelar el ticket #{showCancelModal}?
+              El ticket se cerrará y no podrá reabrirse.
+            </p>
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowCancelModal(null)}
+                style={{
+                  padding: '8px 16px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  backgroundColor: 'white',
+                  cursor: 'pointer',
+                }}
+                disabled={actionLoading}
+              >
+                No, volver
+              </button>
+              <button
+                onClick={() => handleCancel(showCancelModal)}
+                style={{
+                  padding: '8px 16px',
+                  border: 'none',
+                  borderRadius: '6px',
+                  backgroundColor: '#f59e0b',
+                  color: 'white',
+                  cursor: 'pointer',
+                }}
+                disabled={actionLoading}
+              >
+                {actionLoading ? 'Cancelando...' : 'Sí, cancelar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmación para eliminar */}
+      {showDeleteModal && (
+        <div className="modal-overlay" style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+        }}>
+          <div className="modal-content" style={{
+            backgroundColor: 'white',
+            padding: '2rem',
+            borderRadius: '12px',
+            maxWidth: '400px',
+            width: '90%',
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
+          }}>
+            <h3 style={{ marginBottom: '1rem', color: '#ef4444' }}>
+              <Trash2 size={24} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+              Eliminar Ticket
+            </h3>
+            <p style={{ marginBottom: '1.5rem', color: '#6b7280' }}>
+              ¿Estás seguro de que deseas eliminar el ticket #{showDeleteModal}?
+              <strong style={{ color: '#ef4444', display: 'block', marginTop: '0.5rem' }}>
+                Esta acción no se puede deshacer.
+              </strong>
+            </p>
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowDeleteModal(null)}
+                style={{
+                  padding: '8px 16px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  backgroundColor: 'white',
+                  cursor: 'pointer',
+                }}
+                disabled={actionLoading}
+              >
+                No, volver
+              </button>
+              <button
+                onClick={() => handleDelete(showDeleteModal)}
+                style={{
+                  padding: '8px 16px',
+                  border: 'none',
+                  borderRadius: '6px',
+                  backgroundColor: '#ef4444',
+                  color: 'white',
+                  cursor: 'pointer',
+                }}
+                disabled={actionLoading}
+              >
+                {actionLoading ? 'Eliminando...' : 'Sí, eliminar'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
