@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 
-const GEMINI_API_KEY = '***GEMINI_API_KEY_REMOVED***';
-const GEMINI_MODEL = 'gemini-pro';
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
+const GEMINI_MODEL = import.meta.env.VITE_GEMINI_MODEL || 'gemini-pro';
 
 const SYSTEM_INSTRUCTIONS = `
 Rol: Eres un experto Gestor de Incidencias de TI para KOF
@@ -161,6 +161,11 @@ export default function AIChatWidget() {
     setLoading(true);
 
     try {
+      // Verificar que hay API key configurada
+      if (!GEMINI_API_KEY) {
+        throw new Error('API key de Gemini no configurada. Contacta al administrador.');
+      }
+
       const fullPrompt = `${SYSTEM_INSTRUCTIONS}\n\n${KNOWLEDGE_BASE}\n\n---\nCONSULTA: ${textToSend}\n\nResponde de forma concisa.`;
 
       const response = await fetch(
