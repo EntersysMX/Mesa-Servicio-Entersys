@@ -441,63 +441,61 @@ export default function TicketCreate() {
               </div>
             )}
 
-            {/* Sección de Priorización - Solo visible para técnicos y admins */}
-            {!isClient && (
-              <div className="form-section">
-                <h2>Priorización</h2>
+            {/* Sección de Priorización - Visible para todos */}
+            <div className="form-section">
+              <h2>Priorización</h2>
 
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="urgency">Urgencia</label>
-                    <select
-                      id="urgency"
-                      name="urgency"
-                      value={formData.urgency}
-                      onChange={handleChange}
-                    >
-                      <option value={1}>Muy baja</option>
-                      <option value={2}>Baja</option>
-                      <option value={3}>Media</option>
-                      <option value={4}>Alta</option>
-                      <option value={5}>Muy alta</option>
-                    </select>
-                  </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="urgency">Urgencia</label>
+                  <select
+                    id="urgency"
+                    name="urgency"
+                    value={formData.urgency}
+                    onChange={handleChange}
+                  >
+                    <option value={1}>Muy baja</option>
+                    <option value={2}>Baja</option>
+                    <option value={3}>Media</option>
+                    <option value={4}>Alta</option>
+                    <option value={5}>Muy alta</option>
+                  </select>
+                </div>
 
-                  <div className="form-group">
-                    <label htmlFor="impact">Impacto</label>
-                    <select
-                      id="impact"
-                      name="impact"
-                      value={formData.impact}
-                      onChange={handleChange}
-                    >
-                      <option value={1}>Muy bajo</option>
-                      <option value={2}>Bajo</option>
-                      <option value={3}>Medio</option>
-                      <option value={4}>Alto</option>
-                      <option value={5}>Muy alto</option>
-                    </select>
-                  </div>
+                <div className="form-group">
+                  <label htmlFor="impact">Impacto</label>
+                  <select
+                    id="impact"
+                    name="impact"
+                    value={formData.impact}
+                    onChange={handleChange}
+                  >
+                    <option value={1}>Muy bajo</option>
+                    <option value={2}>Bajo</option>
+                    <option value={3}>Medio</option>
+                    <option value={4}>Alto</option>
+                    <option value={5}>Muy alto</option>
+                  </select>
+                </div>
 
-                  <div className="form-group">
-                    <label htmlFor="priority">Prioridad</label>
-                    <select
-                      id="priority"
-                      name="priority"
-                      value={formData.priority}
-                      onChange={handleChange}
-                    >
-                      <option value={1}>Muy baja</option>
-                      <option value={2}>Baja</option>
-                      <option value={3}>Media</option>
-                      <option value={4}>Alta</option>
-                      <option value={5}>Muy alta</option>
-                      <option value={6}>Mayor</option>
-                    </select>
-                  </div>
+                <div className="form-group">
+                  <label htmlFor="priority">Prioridad</label>
+                  <select
+                    id="priority"
+                    name="priority"
+                    value={formData.priority}
+                    onChange={handleChange}
+                  >
+                    <option value={1}>Muy baja</option>
+                    <option value={2}>Baja</option>
+                    <option value={3}>Media</option>
+                    <option value={4}>Alta</option>
+                    <option value={5}>Muy alta</option>
+                    <option value={6}>Mayor</option>
+                  </select>
                 </div>
               </div>
-            )}
+            </div>
 
             <div className="form-actions">
               <button
