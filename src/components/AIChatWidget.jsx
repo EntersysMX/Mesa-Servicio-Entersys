@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 
 const GEMINI_API_KEY = 'AIzaSyA-_uX-vZijT610p15Swmut146SBXawKko';
-const GEMINI_MODEL = 'gemini-1.5-flash';
+const GEMINI_MODEL = 'gemini-pro';
 
 const SYSTEM_INSTRUCTIONS = `
 Rol: Eres un experto Gestor de Incidencias de TI para KOF
