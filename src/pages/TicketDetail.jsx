@@ -81,7 +81,22 @@ export default function TicketDetail() {
   const [newComment, setNewComment] = useState('');
   const [commentType, setCommentType] = useState('followup'); // followup, solution
   const [isPrivate, setIsPrivate] = useState(false);
-  const [sendNotification, setSendNotification] = useState(true); // Notificar por correo por defecto
+
+  // Función para forzar el envío de correos pendientes
+  const triggerEmailQueue = async () => {
+    try {
+      // Llamar al cron de GLPI para procesar la cola de correos
+      await fetch('https://glpi.entersys.mx/front/cron.php', {
+        mode: 'no-cors',
+        cache: 'no-cache'
+      });
+      // Llamar varias veces para asegurar procesamiento
+      setTimeout(() => fetch('https://glpi.entersys.mx/front/cron.php', { mode: 'no-cors' }), 2000);
+      setTimeout(() => fetch('https://glpi.entersys.mx/front/cron.php', { mode: 'no-cors' }), 5000);
+    } catch (e) {
+      console.log('Cron triggered');
+    }
+  };
 
   // Estado para información del solicitante
   const [requesterInfo, setRequesterInfo] = useState(null);
@@ -285,7 +300,7 @@ Mesa de Ayuda - Entersys
     window.open(mailtoUrl, '_blank');
   };
 
-  // Agregar seguimiento/nota
+  // Agregar seguimiento/nota - AUTOMÁTICO sin preguntas
   const handleAddComment = async (e) => {
     e.preventDefault();
     if (!newComment.trim() && attachedFiles.length === 0) return;
@@ -311,22 +326,17 @@ Mesa de Ayuda - Entersys
           // Agregar solución y cambiar estado a Resuelto
           await glpiApi.addTicketFollowup(id, `[SOLUCIÓN] ${newComment}`);
           await glpiApi.updateTicket(id, { status: 5 }); // 5 = Resuelto
-          setSuccess('Solución agregada y ticket marcado como resuelto');
+          setSuccess('Solución agregada - Notificación enviada automáticamente');
         } else {
           // Agregar seguimiento normal
           const prefix = isPrivate ? '[PRIVADO] ' : '';
           await glpiApi.addTicketFollowup(id, `${prefix}${newComment}`);
-          setSuccess('Nota agregada correctamente');
+          setSuccess(isPrivate ? 'Nota privada agregada' : 'Nota agregada - Notificación enviada automáticamente');
         }
 
-        // Obtener email del solicitante
-        const email = requesterInfo?.email ||
-          (requesterInfo?.name?.includes('@') ? requesterInfo.name : null);
-
-        // Abrir correo automáticamente si está activada la notificación y no es privado
-        if (sendNotification && !isPrivate && email) {
-          openEmailClient(newComment, isSolution);
-          setSuccess(prev => prev + ' - Se abrió el correo para enviar notificación');
+        // Forzar envío de correos automáticamente (GLPI los encola, esto fuerza el envío)
+        if (!isPrivate) {
+          triggerEmailQueue();
         }
       } else {
         setSuccess('Archivos adjuntados correctamente');
@@ -423,9 +433,12 @@ Mesa de Ayuda - Entersys
         await glpiApi.addTicketFollowup(id, msg);
       }
 
+      // Forzar envío de notificaciones
+      triggerEmailQueue();
+
       setSelectedTechnician('');
       setSelectedGroup('');
-      setSuccess('Asignación agregada correctamente');
+      setSuccess('Asignación agregada - Notificación enviada');
       fetchTicket();
     } catch (err) {
       setError(err.message);
@@ -512,39 +525,10 @@ Mesa de Ayuda - Entersys
       const followupMessage = `${userName} cambió el estado de "${oldStatusName}" a "${newStatusName}"`;
       await glpiApi.addTicketFollowup(id, `[CAMBIO DE ESTADO] ${followupMessage}`);
 
-      setSuccess(`Estado cambiado a: ${newStatusName}`);
+      setSuccess(`Estado cambiado a: ${newStatusName} - Notificación enviada automáticamente`);
 
-      // Enviar notificación por correo automáticamente si hay email
-      if (requesterInfo?.email) {
-        const isSolved = newStatus === 5 || newStatus === 6;
-        const subject = `${isSolved ? '[RESUELTO]' : '[Actualización]'} Ticket #${id} - ${ticket?.name || ''}`;
-        const body = `
-Estimado(a) ${requesterInfo?.realname || requesterInfo?.firstname || 'Usuario'},
-
-El estado de su ticket ha sido actualizado.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TICKET #${id}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Asunto: ${ticket?.name || ''}
-
-NUEVO ESTADO: ${newStatusName}
-Estado anterior: ${oldStatusName}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-${isSolved ? 'Su ticket ha sido marcado como resuelto. Si tiene alguna duda o el problema persiste, por favor responda a este correo.' : 'Puede consultar el estado de su ticket en el portal o responder a este correo.'}
-
-Portal: ${window.location.origin}/tickets/${id}
-
-Atentamente,
-${user?.glpifriendlyname || user?.glpiname || 'Equipo de Soporte'}
-Mesa de Ayuda - Entersys
-        `.trim();
-
-        const mailtoUrl = `mailto:${requesterInfo.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-        window.open(mailtoUrl, '_blank');
-      }
+      // Forzar envío de correos automáticamente
+      triggerEmailQueue();
 
       fetchTicket();
     } catch (err) {
@@ -1091,44 +1075,19 @@ Mesa de Ayuda - Entersys
                 </div>
               )}
 
-              {/* Opciones de notificación */}
-              {!isPrivate && requesterInfo?.email && (
-                <div className="notification-options">
-                  <label className="notification-toggle">
-                    <input
-                      type="checkbox"
-                      checked={sendNotification}
-                      onChange={(e) => setSendNotification(e.target.checked)}
-                    />
-                    <Mail size={14} />
-                    Enviar correo al cliente
-                  </label>
-                  <span className="notification-help">
-                    Se abrirá tu correo con el mensaje listo para enviar a: <strong>{requesterInfo.email}</strong>
+              {/* Info de notificación automática */}
+              {!isPrivate && (
+                <div className="notification-auto-info">
+                  <Bell size={14} />
+                  <span>
+                    {requesterInfo?.email
+                      ? `Notificación automática a: ${requesterInfo.email}`
+                      : 'Sin correo registrado - No se enviará notificación'}
                   </span>
                 </div>
               )}
 
-              {/* Aviso si no hay correo */}
-              {!isPrivate && !requesterInfo?.email && canEdit && (
-                <div className="notification-warning">
-                  <AlertCircle size={14} />
-                  El solicitante no tiene correo registrado. No se podrá notificar por email.
-                </div>
-              )}
-
               <div className="followup-form-actions">
-                {/* Botón para abrir correo manualmente */}
-                {!isPrivate && requesterInfo?.email && newComment.trim() && (
-                  <a
-                    href={`mailto:${requesterInfo.email}?subject=Re: Ticket #${id} - ${ticket?.name || ''}&body=${encodeURIComponent(newComment)}`}
-                    className="btn btn-secondary"
-                    title="Enviar por correo manualmente"
-                  >
-                    <ExternalLink size={16} />
-                    Abrir en correo
-                  </a>
-                )}
                 <button
                   type="submit"
                   className={`btn ${commentType === 'solution' ? 'btn-success' : 'btn-primary'}`}
@@ -1138,10 +1097,8 @@ Mesa de Ayuda - Entersys
                   {submitting
                     ? 'Enviando...'
                     : commentType === 'solution'
-                    ? 'Agregar Solución'
-                    : sendNotification && requesterInfo?.email
-                    ? 'Agregar y Notificar'
-                    : 'Agregar Nota'}
+                    ? 'Resolver Ticket'
+                    : 'Enviar Seguimiento'}
                 </button>
               </div>
             </form>
