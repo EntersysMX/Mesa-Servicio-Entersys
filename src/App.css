@@ -186,6 +186,15 @@ body {
   border-top: 1px solid rgba(255,255,255,0.1);
 }
 
+.sidebar-version {
+  text-align: center;
+  font-size: 10px;
+  color: rgba(255,255,255,0.4);
+  padding-top: 12px;
+  margin-top: 8px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+
 .sidebar-overlay {
   display: none;
   position: fixed;
@@ -375,6 +384,13 @@ body {
 .login-footer p {
   font-size: 12px;
   color: var(--text-muted);
+}
+
+.login-footer .version-text {
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.7;
+  margin-top: 4px;
 }
 
 /* Forgot Password */
