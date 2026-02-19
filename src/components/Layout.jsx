@@ -1,6 +1,7 @@
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import AIChatWidget from './AIChatWidget';
+import { APP_VERSION } from '../version';
 import {
   LayoutDashboard,
   TicketPlus,
@@ -189,6 +190,9 @@ export default function Layout({ children }) {
             <LogOut size={20} />
             <span>Cerrar Sesión</span>
           </button>
+          <div className="sidebar-version">
+            v{APP_VERSION}
+          </div>
         </div>
       </aside>
 

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { LogIn, UserPlus, AlertCircle, Mail, Lock, User, Building, Phone, KeyRound, ArrowLeft } from 'lucide-react';
+import { APP_VERSION } from '../version';
 
 export default function Login() {
   const [isLogin, setIsLogin] = useState(true);
@@ -309,6 +310,7 @@ export default function Login() {
 
         <div className="login-footer">
           <p>Conectado a GLPI - Entersys</p>
+          <p className="version-text">v{APP_VERSION}</p>
         </div>
       </div>
     </div>
