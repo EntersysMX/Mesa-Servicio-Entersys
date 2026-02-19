@@ -110,6 +110,9 @@ export default function TicketDetail() {
   // Estado para SLA
   const [slaInfo, setSlaInfo] = useState(null);
 
+  // Cache de nombres de usuarios para el timeline
+  const [usersCache, setUsersCache] = useState({});
+
   const canAssign = isAdmin || isTechnician;
   const canEdit = isAdmin || isTechnician;
 
@@ -124,7 +127,31 @@ export default function TicketDetail() {
       ]);
 
       setTicket(ticketData);
-      setFollowups(Array.isArray(followupsData) ? followupsData : []);
+      const followupsList = Array.isArray(followupsData) ? followupsData : [];
+      setFollowups(followupsList);
+
+      // Cargar nombres de usuarios para el timeline
+      const userIds = [...new Set(followupsList.map(f => f.users_id).filter(Boolean))];
+      if (userIds.length > 0) {
+        const usersData = {};
+        await Promise.all(
+          userIds.map(async (userId) => {
+            try {
+              const userData = await glpiApi.getUser(userId);
+              if (userData) {
+                // Obtener nombre legible: realname + firstname, o name, o glpiname
+                const displayName = userData.realname
+                  ? `${userData.realname} ${userData.firstname || ''}`.trim()
+                  : userData.name || `Usuario #${userId}`;
+                usersData[userId] = displayName;
+              }
+            } catch (e) {
+              usersData[userId] = `Usuario #${userId}`;
+            }
+          })
+        );
+        setUsersCache(prev => ({ ...prev, ...usersData }));
+      }
 
       // Preparar datos de edición
       setEditData({
@@ -917,7 +944,7 @@ Mesa de Ayuda - Entersys
                             </span>
                             <span className="timeline-user">
                               <User size={12} />
-                              Usuario #{followup.users_id}
+                              {usersCache[followup.users_id] || `Usuario #${followup.users_id}`}
                             </span>
                           </div>
                           <span className="timeline-date">
