@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 
 const GEMINI_API_KEY = '***GEMINI_API_KEY_REMOVED***';
-const GEMINI_MODEL = 'gemini-2.5-flash';
+const GEMINI_MODEL = 'gemini-1.5-flash';
 
 const SYSTEM_INSTRUCTIONS = `
 Rol: Eres un experto Gestor de Incidencias de TI para KOF
@@ -176,13 +176,25 @@ export default function AIChatWidget() {
       );
 
       const data = await response.json();
+
+      // Verificar si hay error en la respuesta
+      if (data.error) {
+        console.error('Gemini API Error:', data.error);
+        throw new Error(data.error.message || 'Error de API');
+      }
+
       if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
         setMessages(prev => [...prev, { role: 'assistant', content: data.candidates[0].content.parts[0].text }]);
       } else {
-        throw new Error('No response');
+        console.error('Unexpected response:', data);
+        throw new Error('Respuesta vacía');
       }
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Error al procesar. Intenta de nuevo.' }]);
+      console.error('Chat error:', error);
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `⚠️ Error: ${error.message || 'No se pudo conectar'}. Intenta de nuevo.`
+      }]);
     } finally {
       setLoading(false);
     }
