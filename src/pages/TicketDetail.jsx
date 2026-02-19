@@ -1032,11 +1032,7 @@ Mesa de Ayuda - Entersys
                     <input
                       type="checkbox"
                       checked={isPrivate}
-                      onChange={(e) => {
-                        setIsPrivate(e.target.checked);
-                        // Si es privado, desactivar notificación
-                        if (e.target.checked) setSendNotification(false);
-                      }}
+                      onChange={(e) => setIsPrivate(e.target.checked)}
                     />
                     <Lock size={14} />
                     Nota privada
