@@ -5,14 +5,31 @@ const AuthContext = createContext(null);
 
 // Mapeo de perfiles de GLPI a roles del sistema
 const ROLE_MAPPING = {
+  // Administradores
   'Super-Admin': 'admin',
   'Admin': 'admin',
+  'Administrador': 'admin',
+
+  // Técnicos - agregar aquí más perfiles si es necesario
   'Technician': 'technician',
   'Técnico': 'technician',
+  'Tecnico': 'technician',
   'Supervisor': 'technician',
+  'Hotliner': 'technician',
+  'Soporte': 'technician',
+  'Support': 'technician',
+  'Help Desk': 'technician',
+  'Helpdesk': 'technician',
+  'IT': 'technician',
+  'TI': 'technician',
+
+  // Clientes
   'Self-Service': 'client',
   'Observer': 'client',
-  'Hotliner': 'technician',
+  'Cliente': 'client',
+  'Client': 'client',
+  'User': 'client',
+  'Usuario': 'client',
 };
 
 export function AuthProvider({ children }) {
