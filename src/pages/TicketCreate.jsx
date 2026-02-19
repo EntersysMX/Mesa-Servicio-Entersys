@@ -19,7 +19,7 @@ import {
 
 export default function TicketCreate() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isClient } = useAuth();
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState(null);
@@ -361,137 +361,143 @@ export default function TicketCreate() {
               )}
             </div>
 
-            <div className="form-section">
-              <h2>Asignación</h2>
+            {/* Sección de Asignación - Solo visible para técnicos y admins */}
+            {!isClient && (
+              <div className="form-section">
+                <h2>Asignación</h2>
 
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="locations_id">
-                    <MapPin size={16} style={{ marginRight: 4, verticalAlign: 'middle' }} />
-                    Proyecto / Ubicación
-                  </label>
-                  <select
-                    id="locations_id"
-                    name="locations_id"
-                    value={formData.locations_id}
-                    onChange={handleChange}
-                  >
-                    <option value={0}>-- Seleccionar proyecto --</option>
-                    {locations.map((loc) => (
-                      <option key={loc.id} value={loc.id}>
-                        {loc.completename || loc.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="locations_id">
+                      <MapPin size={16} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                      Proyecto / Ubicación
+                    </label>
+                    <select
+                      id="locations_id"
+                      name="locations_id"
+                      value={formData.locations_id}
+                      onChange={handleChange}
+                    >
+                      <option value={0}>-- Seleccionar proyecto --</option>
+                      {locations.map((loc) => (
+                        <option key={loc.id} value={loc.id}>
+                          {loc.completename || loc.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                <div className="form-group">
-                  <label htmlFor="_groups_id_assign">
-                    <Users size={16} style={{ marginRight: 4, verticalAlign: 'middle' }} />
-                    Área / Grupo
-                  </label>
-                  <select
-                    id="_groups_id_assign"
-                    name="_groups_id_assign"
-                    value={formData._groups_id_assign}
-                    onChange={handleChange}
-                  >
-                    <option value={0}>-- Seleccionar grupo --</option>
-                    {groups.map((group) => (
-                      <option key={group.id} value={group.id}>
-                        {group.completename || group.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                  <div className="form-group">
+                    <label htmlFor="_groups_id_assign">
+                      <Users size={16} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                      Área / Grupo
+                    </label>
+                    <select
+                      id="_groups_id_assign"
+                      name="_groups_id_assign"
+                      value={formData._groups_id_assign}
+                      onChange={handleChange}
+                    >
+                      <option value={0}>-- Seleccionar grupo --</option>
+                      {groups.map((group) => (
+                        <option key={group.id} value={group.id}>
+                          {group.completename || group.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                <div className="form-group">
-                  <label htmlFor="_users_id_assign">
-                    <User size={16} style={{ marginRight: 4, verticalAlign: 'middle' }} />
-                    Asignar a (Técnico)
-                    {formData._groups_id_assign > 0 && technicians.length > 0 && (
-                      <span style={{ fontSize: '11px', color: '#666', marginLeft: 8 }}>
-                        ({technicians.length} del grupo)
-                      </span>
-                    )}
-                  </label>
-                  <select
-                    id="_users_id_assign"
-                    name="_users_id_assign"
-                    value={formData._users_id_assign}
-                    onChange={handleChange}
-                  >
-                    <option value={0}>
-                      {formData._groups_id_assign > 0
-                        ? technicians.length > 0
-                          ? '-- Seleccionar técnico del grupo --'
-                          : '-- No hay técnicos en este grupo --'
-                        : '-- Sin asignar --'}
-                    </option>
-                    {technicians.map((tech) => (
-                      <option key={tech.id} value={tech.id}>
-                        {tech.realname ? `${tech.realname} ${tech.firstname || ''}`.trim() : tech.name}
+                  <div className="form-group">
+                    <label htmlFor="_users_id_assign">
+                      <User size={16} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                      Asignar a (Técnico)
+                      {formData._groups_id_assign > 0 && technicians.length > 0 && (
+                        <span style={{ fontSize: '11px', color: '#666', marginLeft: 8 }}>
+                          ({technicians.length} del grupo)
+                        </span>
+                      )}
+                    </label>
+                    <select
+                      id="_users_id_assign"
+                      name="_users_id_assign"
+                      value={formData._users_id_assign}
+                      onChange={handleChange}
+                    >
+                      <option value={0}>
+                        {formData._groups_id_assign > 0
+                          ? technicians.length > 0
+                            ? '-- Seleccionar técnico del grupo --'
+                            : '-- No hay técnicos en este grupo --'
+                          : '-- Sin asignar --'}
                       </option>
-                    ))}
-                  </select>
+                      {technicians.map((tech) => (
+                        <option key={tech.id} value={tech.id}>
+                          {tech.realname ? `${tech.realname} ${tech.firstname || ''}`.trim() : tech.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            <div className="form-section">
-              <h2>Priorización</h2>
+            {/* Sección de Priorización - Solo visible para técnicos y admins */}
+            {!isClient && (
+              <div className="form-section">
+                <h2>Priorización</h2>
 
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="urgency">Urgencia</label>
-                  <select
-                    id="urgency"
-                    name="urgency"
-                    value={formData.urgency}
-                    onChange={handleChange}
-                  >
-                    <option value={1}>Muy baja</option>
-                    <option value={2}>Baja</option>
-                    <option value={3}>Media</option>
-                    <option value={4}>Alta</option>
-                    <option value={5}>Muy alta</option>
-                  </select>
-                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="urgency">Urgencia</label>
+                    <select
+                      id="urgency"
+                      name="urgency"
+                      value={formData.urgency}
+                      onChange={handleChange}
+                    >
+                      <option value={1}>Muy baja</option>
+                      <option value={2}>Baja</option>
+                      <option value={3}>Media</option>
+                      <option value={4}>Alta</option>
+                      <option value={5}>Muy alta</option>
+                    </select>
+                  </div>
 
-                <div className="form-group">
-                  <label htmlFor="impact">Impacto</label>
-                  <select
-                    id="impact"
-                    name="impact"
-                    value={formData.impact}
-                    onChange={handleChange}
-                  >
-                    <option value={1}>Muy bajo</option>
-                    <option value={2}>Bajo</option>
-                    <option value={3}>Medio</option>
-                    <option value={4}>Alto</option>
-                    <option value={5}>Muy alto</option>
-                  </select>
-                </div>
+                  <div className="form-group">
+                    <label htmlFor="impact">Impacto</label>
+                    <select
+                      id="impact"
+                      name="impact"
+                      value={formData.impact}
+                      onChange={handleChange}
+                    >
+                      <option value={1}>Muy bajo</option>
+                      <option value={2}>Bajo</option>
+                      <option value={3}>Medio</option>
+                      <option value={4}>Alto</option>
+                      <option value={5}>Muy alto</option>
+                    </select>
+                  </div>
 
-                <div className="form-group">
-                  <label htmlFor="priority">Prioridad</label>
-                  <select
-                    id="priority"
-                    name="priority"
-                    value={formData.priority}
-                    onChange={handleChange}
-                  >
-                    <option value={1}>Muy baja</option>
-                    <option value={2}>Baja</option>
-                    <option value={3}>Media</option>
-                    <option value={4}>Alta</option>
-                    <option value={5}>Muy alta</option>
-                    <option value={6}>Mayor</option>
-                  </select>
+                  <div className="form-group">
+                    <label htmlFor="priority">Prioridad</label>
+                    <select
+                      id="priority"
+                      name="priority"
+                      value={formData.priority}
+                      onChange={handleChange}
+                    >
+                      <option value={1}>Muy baja</option>
+                      <option value={2}>Baja</option>
+                      <option value={3}>Media</option>
+                      <option value={4}>Alta</option>
+                      <option value={5}>Muy alta</option>
+                      <option value={6}>Mayor</option>
+                    </select>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             <div className="form-actions">
               <button
