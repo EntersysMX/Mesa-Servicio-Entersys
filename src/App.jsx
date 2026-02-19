@@ -10,6 +10,7 @@ import TicketEdit from './pages/TicketEdit';
 import MyTickets from './pages/MyTickets';
 import KanbanBoard from './pages/KanbanBoard';
 import ChangePassword from './pages/ChangePassword';
+import AIChat from './pages/AIChat';
 import './App.css';
 
 function ProtectedRoute({ children }) {
@@ -112,6 +113,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <ChangePassword />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/ai-chat"
+        element={
+          <ProtectedRoute>
+            <AIChat />
           </ProtectedRoute>
         }
       />

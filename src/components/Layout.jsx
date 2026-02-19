@@ -1,5 +1,6 @@
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import AIChatWidget from './AIChatWidget';
 import {
   LayoutDashboard,
   TicketPlus,
@@ -14,6 +15,7 @@ import {
   Wrench,
   LayoutGrid,
   KeyRound,
+  Bot,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -46,6 +48,15 @@ export default function Layout({ children }) {
       label: 'Nuevo Ticket',
       icon: TicketPlus,
     });
+
+    // Chat IA - solo técnicos y admins
+    if (isTechnician || isAdmin) {
+      items.push({
+        path: '/ai-chat',
+        label: 'Asistente IA',
+        icon: Bot,
+      });
+    }
 
     // Mis tickets - clientes
     if (isClient) {
@@ -206,6 +217,9 @@ export default function Layout({ children }) {
           {children}
         </div>
       </main>
+
+      {/* Chat flotante de IA - solo para técnicos y admins */}
+      {(isTechnician || isAdmin) && <AIChatWidget />}
     </div>
   );
 }
