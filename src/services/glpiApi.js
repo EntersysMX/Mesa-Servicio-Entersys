@@ -660,9 +660,33 @@ class GlpiApiService {
     return this.getItems('Group', { range: '0-100', ...params });
   }
 
-  // Ubicaciones/Proyectos
+  // Ubicaciones
   async getLocations(params = {}) {
     return this.getItems('Location', { range: '0-100', ...params });
+  }
+
+  // Proyectos
+  async getProjects(params = {}) {
+    return this.getItems('Project', { range: '0-100', expand_dropdowns: true, ...params });
+  }
+
+  // Asociar ticket a proyecto
+  async linkTicketToProject(ticketId, projectId) {
+    try {
+      console.log(`📂 Asociando ticket ${ticketId} al proyecto ${projectId}`);
+      const response = await this.api.post('/Itil_Project', {
+        input: {
+          itemtype: 'Ticket',
+          items_id: ticketId,
+          projects_id: projectId,
+        },
+      });
+      console.log('✅ Ticket asociado al proyecto');
+      return response.data;
+    } catch (error) {
+      console.error('Error asociando ticket a proyecto:', error);
+      throw this.handleError(error);
+    }
   }
 
   // Técnicos - Obtener usuarios que pueden ser asignados a tickets
