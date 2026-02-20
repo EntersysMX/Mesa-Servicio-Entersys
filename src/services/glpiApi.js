@@ -1166,14 +1166,16 @@ class GlpiApiService {
       if (criteria.length > 0) {
         return this.search('Ticket', criteria, {
           range: params.range || '0-50',
-          order: 'DESC',
+          sort: 15, // Campo 15 = fecha de creación
+          order: 'DESC', // Más reciente primero
           ...params,
         });
       } else {
         // Sin filtros, obtener todos
         const result = await this.getTickets({
           range: params.range || '0-50',
-          order: 'DESC',
+          sort: 15, // Campo 15 = fecha de creación
+          order: 'DESC', // Más reciente primero
           ...params,
         });
         return {
