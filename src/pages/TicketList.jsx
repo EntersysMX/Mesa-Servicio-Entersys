@@ -54,8 +54,16 @@ export default function TicketList() {
   const [technicianFilter, setTechnicianFilter] = useState(
     searchParams.get('technician') || 'all'
   );
+
+  // Por defecto mostrar tickets de los últimos 7 días
+  const getDefaultDateFrom = () => {
+    const date = new Date();
+    date.setDate(date.getDate() - 7);
+    return date.toISOString().split('T')[0];
+  };
+
   const [dateFromFilter, setDateFromFilter] = useState(
-    searchParams.get('dateFrom') || ''
+    searchParams.get('dateFrom') || getDefaultDateFrom()
   );
   const [dateToFilter, setDateToFilter] = useState(
     searchParams.get('dateTo') || ''
@@ -151,51 +159,63 @@ export default function TicketList() {
     loadAuxData();
   }, [isAdmin, isTechnician]);
 
-  // Cargar asignaciones de tickets cuando cambia la lista
+  // Estado para controlar carga de asignaciones
+  const [loadingAssignments, setLoadingAssignments] = useState(false);
+
+  // Cargar asignaciones de tickets - OPTIMIZADO: carga en lotes pequeños y en background
   useEffect(() => {
     const loadAssignments = async () => {
       if (tickets.length === 0) return;
 
+      setLoadingAssignments(true);
       const assignments = {};
-      // Cargar asignaciones para cada ticket
-      await Promise.all(
-        tickets.map(async (ticket) => {
-          const ticketId = ticket.id || ticket[2];
-          try {
-            const assignees = await glpiApi.getTicketAssignees(ticketId);
-            const assignedUser = assignees.users.find(u => u.type === 2);
-            const assignedGroup = assignees.groups.find(g => g.type === 2);
 
-            if (assignedUser || assignedGroup) {
-              // Buscar nombre del técnico
-              let techName = null;
-              if (assignedUser?.users_id) {
-                const tech = technicians.find(t => Number(t.id) === Number(assignedUser.users_id));
-                techName = tech ? (tech.realname ? `${tech.realname} ${tech.firstname || ''}`.trim() : tech.name) : `ID:${assignedUser.users_id}`;
+      // Cargar en lotes de 5 para no saturar
+      const batchSize = 5;
+      for (let i = 0; i < tickets.length; i += batchSize) {
+        const batch = tickets.slice(i, i + batchSize);
+
+        await Promise.all(
+          batch.map(async (ticket) => {
+            const ticketId = ticket.id || ticket[2];
+            try {
+              const assignees = await glpiApi.getTicketAssignees(ticketId);
+              const assignedUser = assignees.users.find(u => u.type === 2);
+              const assignedGroup = assignees.groups.find(g => g.type === 2);
+
+              if (assignedUser || assignedGroup) {
+                let techName = null;
+                if (assignedUser?.users_id) {
+                  const tech = technicians.find(t => Number(t.id) === Number(assignedUser.users_id));
+                  techName = tech ? (tech.realname ? `${tech.realname} ${tech.firstname || ''}`.trim() : tech.name) : `ID:${assignedUser.users_id}`;
+                }
+
+                let groupName = null;
+                if (assignedGroup?.groups_id) {
+                  const grp = groups.find(g => Number(g.id) === Number(assignedGroup.groups_id));
+                  groupName = grp?.name || `Grupo #${assignedGroup.groups_id}`;
+                }
+
+                assignments[ticketId] = {
+                  userId: assignedUser?.users_id,
+                  userName: techName,
+                  userAssignmentId: assignedUser?.id,
+                  groupId: assignedGroup?.groups_id,
+                  groupName: groupName,
+                  groupAssignmentId: assignedGroup?.id,
+                };
               }
-
-              // Buscar nombre del grupo
-              let groupName = null;
-              if (assignedGroup?.groups_id) {
-                const grp = groups.find(g => Number(g.id) === Number(assignedGroup.groups_id));
-                groupName = grp?.name || `Grupo #${assignedGroup.groups_id}`;
-              }
-
-              assignments[ticketId] = {
-                userId: assignedUser?.users_id,
-                userName: techName,
-                userAssignmentId: assignedUser?.id,
-                groupId: assignedGroup?.groups_id,
-                groupName: groupName,
-                groupAssignmentId: assignedGroup?.id,
-              };
+            } catch (e) {
+              // Ignorar errores individuales
             }
-          } catch (e) {
-            // Ignorar errores individuales
-          }
-        })
-      );
-      setTicketAssignments(assignments);
+          })
+        );
+
+        // Actualizar parcialmente mientras carga
+        setTicketAssignments(prev => ({ ...prev, ...assignments }));
+      }
+
+      setLoadingAssignments(false);
     };
 
     if (technicians.length > 0 || groups.length > 0) {
