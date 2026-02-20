@@ -668,24 +668,39 @@ class GlpiApiService {
   async getCategoriesWithServiceSession(params = {}) {
     try {
       const config = getConfig();
-      // Crear sesión temporal con credenciales de servicio
+      const baseUrl = `${config.glpiUrl}/apirest.php`;
+
+      // Crear sesión temporal con credenciales de servicio (usando axios directo, no this.api)
       const credentials = btoa('glpi:glpi');
-      const initRes = await this.api.get('/initSession', {
-        headers: { Authorization: `Basic ${credentials}` }
+      const initRes = await axios.get(`${baseUrl}/initSession`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'App-Token': config.appToken,
+          'Authorization': `Basic ${credentials}`
+        }
       });
       const serviceToken = initRes.data.session_token;
+      console.log('✅ Sesión de servicio creada para categorías');
 
       // Obtener categorías con la sesión de servicio
-      const response = await this.api.get('/ITILCategory', {
+      const response = await axios.get(`${baseUrl}/ITILCategory`, {
         params: { range: '0-100', ...params },
-        headers: { 'Session-Token': serviceToken }
+        headers: {
+          'Content-Type': 'application/json',
+          'App-Token': config.appToken,
+          'Session-Token': serviceToken
+        }
       });
 
       // Cerrar sesión de servicio
-      await this.api.get('/killSession', {
-        headers: { 'Session-Token': serviceToken }
+      await axios.get(`${baseUrl}/killSession`, {
+        headers: {
+          'App-Token': config.appToken,
+          'Session-Token': serviceToken
+        }
       }).catch(() => {});
 
+      console.log('✅ Categorías obtenidas:', response.data?.length || 0);
       return response.data;
     } catch (error) {
       console.error('Error obteniendo categorías con servicio:', error);
@@ -730,24 +745,40 @@ class GlpiApiService {
   // Obtener proyectos con sesión de servicio (admin)
   async getProjectsWithServiceSession(params = {}) {
     try {
-      // Crear sesión temporal con credenciales de servicio
+      const config = getConfig();
+      const baseUrl = `${config.glpiUrl}/apirest.php`;
+
+      // Crear sesión temporal con credenciales de servicio (usando axios directo)
       const credentials = btoa('glpi:glpi');
-      const initRes = await this.api.get('/initSession', {
-        headers: { Authorization: `Basic ${credentials}` }
+      const initRes = await axios.get(`${baseUrl}/initSession`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'App-Token': config.appToken,
+          'Authorization': `Basic ${credentials}`
+        }
       });
       const serviceToken = initRes.data.session_token;
+      console.log('✅ Sesión de servicio creada para proyectos');
 
       // Obtener proyectos con la sesión de servicio
-      const response = await this.api.get('/Project', {
+      const response = await axios.get(`${baseUrl}/Project`, {
         params: { range: '0-100', expand_dropdowns: true, ...params },
-        headers: { 'Session-Token': serviceToken }
+        headers: {
+          'Content-Type': 'application/json',
+          'App-Token': config.appToken,
+          'Session-Token': serviceToken
+        }
       });
 
       // Cerrar sesión de servicio
-      await this.api.get('/killSession', {
-        headers: { 'Session-Token': serviceToken }
+      await axios.get(`${baseUrl}/killSession`, {
+        headers: {
+          'App-Token': config.appToken,
+          'Session-Token': serviceToken
+        }
       }).catch(() => {});
 
+      console.log('✅ Proyectos obtenidos:', response.data?.length || 0);
       return response.data;
     } catch (error) {
       console.error('Error obteniendo proyectos con servicio:', error);
