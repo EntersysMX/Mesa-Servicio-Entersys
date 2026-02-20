@@ -17,7 +17,6 @@ import {
   LayoutGrid,
   KeyRound,
   Bot,
-  Loader2,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -26,7 +25,6 @@ export default function Layout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [navigating, setNavigating] = useState(false);
 
   const getRoleLabel = () => {
     if (isAdmin) return { label: 'Administrador', icon: Shield, color: '#dc2626' };
@@ -175,26 +173,15 @@ export default function Layout({ children }) {
             return (
               <button
                 key={item.path}
-                className={`nav-item ${isActive ? 'active' : ''} ${navigating ? 'navigating' : ''}`}
+                className={`nav-item ${isActive ? 'active' : ''}`}
                 onClick={() => {
                   setSidebarOpen(false);
-                  // Si es la misma ruta, no hacer nada
-                  if (isSamePath) return;
-                  // Mostrar loading y navegar
-                  setNavigating(true);
-                  // Pequeño delay para mostrar feedback visual
-                  setTimeout(() => {
+                  if (!isSamePath) {
                     navigate(item.path);
-                    setNavigating(false);
-                  }, 50);
+                  }
                 }}
-                disabled={navigating}
               >
-                {navigating && !isSamePath ? (
-                  <Loader2 size={20} className="spinning" />
-                ) : (
-                  <item.icon size={20} />
-                )}
+                <item.icon size={20} />
                 <span>{item.label}</span>
               </button>
             );
