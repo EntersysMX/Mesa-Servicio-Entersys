@@ -264,7 +264,15 @@ export default function TicketList() {
 
       const result = await glpiApi.searchTicketsAdvanced(filters, { range });
 
-      const ticketData = result.data || [];
+      let ticketData = result.data || [];
+
+      // Ordenar por fecha descendente (más reciente primero) como fallback
+      ticketData.sort((a, b) => {
+        const dateA = new Date(a.date || a[15] || 0);
+        const dateB = new Date(b.date || b[15] || 0);
+        return dateB - dateA;
+      });
+
       setTickets(ticketData);
       setTotalCount(result.totalcount || ticketData.length);
     } catch (err) {
