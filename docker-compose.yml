@@ -36,6 +36,28 @@ services:
       timeout: 10s
       retries: 3
 
+  # Servicio de CRON para GLPI - Procesa cola de correos cada minuto
+  glpi-cron:
+    image: alpine:latest
+    container_name: glpi-cron
+    restart: unless-stopped
+    command: >
+      sh -c "
+        echo 'GLPI Cron Service iniciado...';
+        while true; do
+          echo \"[\$$(date '+%Y-%m-%d %H:%M:%S')] Ejecutando cron de GLPI...\";
+          wget -q -O /dev/null 'https://glpi.entersys.mx/front/cron.php' 2>/dev/null && echo 'OK' || echo 'Error';
+          sleep 60;
+        done
+      "
+    networks:
+      - traefik-public
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 32M
+
   # Servicio de sincronización Smartsheet ↔ GLPI
   smartsheet-sync:
     build:
