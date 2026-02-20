@@ -161,6 +161,15 @@ export default function Layout({ children }) {
               <roleInfo.icon size={12} />
               {roleInfo.label}
             </span>
+            {user?.glpiactive_entity_name && (
+              <span className="user-entity" style={{
+                fontSize: '0.75rem',
+                color: '#6b7280',
+                marginTop: '2px'
+              }}>
+                🏢 {user.glpiactive_entity_name}
+              </span>
+            )}
           </div>
         </div>
 
@@ -219,7 +228,19 @@ export default function Layout({ children }) {
             <Menu size={24} />
           </button>
           <div className="header-title">
-            <h1>Mesa de Ayuda - Entersys</h1>
+            <h1>
+              Mesa de Ayuda - Entersys
+              {user?.glpiactive_entity_name && (
+                <span style={{
+                  fontSize: '0.6em',
+                  fontWeight: 'normal',
+                  marginLeft: '8px',
+                  opacity: 0.8
+                }}>
+                  ({user.glpiactive_entity_name})
+                </span>
+              )}
+            </h1>
           </div>
           <div className="header-user">
             <span className="role-badge" style={{ backgroundColor: roleInfo.color }}>
