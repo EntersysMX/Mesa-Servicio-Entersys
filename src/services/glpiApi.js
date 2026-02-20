@@ -760,9 +760,9 @@ class GlpiApiService {
       const serviceToken = initRes.data.session_token;
       console.log('✅ Sesión de servicio creada para proyectos');
 
-      // Obtener proyectos con la sesión de servicio
+      // Obtener proyectos con la sesión de servicio (SIN expand_dropdowns para mantener IDs numéricos)
       const response = await axios.get(`${baseUrl}/Project`, {
-        params: { range: '0-100', expand_dropdowns: true, ...params },
+        params: { range: '0-100' },
         headers: {
           'Content-Type': 'application/json',
           'App-Token': config.appToken,
