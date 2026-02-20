@@ -64,13 +64,41 @@ export default function TicketCreate() {
           glpiApi.getGroupTechniciansMap().catch(() => ({})),
         ]);
 
-        console.log('📁 Categorías cargadas:', categoriesData);
-        console.log('📂 Proyectos cargados:', projectsData);
+        // Obtener la entidad activa del usuario
+        const userEntityId = user?.glpiactive_entity;
+        console.log('🏢 Entidad activa del usuario:', userEntityId);
 
-        setCategories(Array.isArray(categoriesData) ? categoriesData : []);
+        // Filtrar categorías por entidad del usuario
+        // Mostrar las de la entidad del usuario + las recursivas de entidades padre (entities_id=0 con is_recursive=1)
+        let filteredCategories = Array.isArray(categoriesData) ? categoriesData : [];
+        if (userEntityId && userEntityId > 0) {
+          filteredCategories = filteredCategories.filter(cat => {
+            // Categorías de la entidad del usuario
+            if (cat.entities_id === userEntityId) return true;
+            // Categorías de la entidad raíz que son recursivas
+            if (cat.entities_id === 0 && cat.is_recursive === 1) return true;
+            return false;
+          });
+        }
+        console.log('📁 Categorías filtradas:', filteredCategories.length);
+
+        // Filtrar proyectos por entidad del usuario
+        let filteredProjects = Array.isArray(projectsData) ? projectsData : [];
+        if (userEntityId && userEntityId > 0) {
+          filteredProjects = filteredProjects.filter(proj => {
+            // Proyectos de la entidad del usuario
+            if (proj.entities_id === userEntityId) return true;
+            // Proyectos de la entidad raíz que son recursivos (opcional, depende de la necesidad)
+            // if (proj.entities_id === 0 && proj.is_recursive === 1) return true;
+            return false;
+          });
+        }
+        console.log('📂 Proyectos filtrados:', filteredProjects.length);
+
+        setCategories(filteredCategories);
         setGroups(Array.isArray(groupsData) ? groupsData : []);
         setLocations(Array.isArray(locationsData) ? locationsData : []);
-        setProjects(Array.isArray(projectsData) ? projectsData : []);
+        setProjects(filteredProjects);
 
         const techList = Array.isArray(techniciansData) ? techniciansData : [];
         setAllTechnicians(techList);
@@ -83,7 +111,7 @@ export default function TicketCreate() {
       }
     };
     fetchData();
-  }, []);
+  }, [user]);
 
   // Manejar drag and drop de archivos
   const handleDrag = (e) => {
