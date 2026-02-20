@@ -28,6 +28,7 @@ export default function TicketCreate() {
   const [categories, setCategories] = useState([]);
   const [groups, setGroups] = useState([]);
   const [locations, setLocations] = useState([]);
+  const [projects, setProjects] = useState([]);
   const [technicians, setTechnicians] = useState([]);
   const [allTechnicians, setAllTechnicians] = useState([]);
   const [groupTechniciansMap, setGroupTechniciansMap] = useState({});
@@ -44,7 +45,8 @@ export default function TicketCreate() {
     impact: 3,
     priority: 3,
     itilcategories_id: 0,
-    locations_id: 0, // Proyecto/Ubicación
+    projects_id: 0, // Proyecto
+    locations_id: 0, // Ubicación
     _groups_id_assign: 0, // Grupo asignado
     _users_id_assign: 0, // Técnico asignado
   });
@@ -53,17 +55,22 @@ export default function TicketCreate() {
     const fetchData = async () => {
       setLoadingData(true);
       try {
-        const [categoriesData, groupsData, locationsData, techniciansData, groupMapData] = await Promise.all([
+        const [categoriesData, groupsData, locationsData, projectsData, techniciansData, groupMapData] = await Promise.all([
           glpiApi.getCategories({ range: '0-100' }).catch(() => []),
           glpiApi.getGroups().catch(() => []),
           glpiApi.getLocations().catch(() => []),
+          glpiApi.getProjects().catch(() => []),
           glpiApi.getTechnicians().catch(() => []),
           glpiApi.getGroupTechniciansMap().catch(() => ({})),
         ]);
 
+        console.log('📁 Categorías cargadas:', categoriesData);
+        console.log('📂 Proyectos cargados:', projectsData);
+
         setCategories(Array.isArray(categoriesData) ? categoriesData : []);
         setGroups(Array.isArray(groupsData) ? groupsData : []);
         setLocations(Array.isArray(locationsData) ? locationsData : []);
+        setProjects(Array.isArray(projectsData) ? projectsData : []);
 
         const techList = Array.isArray(techniciansData) ? techniciansData : [];
         setAllTechnicians(techList);
@@ -178,6 +185,11 @@ export default function TicketCreate() {
         // Asignar explícitamente el solicitante (usuario logueado)
         if (requesterId) {
           await glpiApi.assignTicketRequester(ticketId, requesterId).catch(console.error);
+        }
+
+        // Asociar proyecto si se seleccionó
+        if (formData.projects_id > 0) {
+          await glpiApi.linkTicketToProject(ticketId, formData.projects_id).catch(console.error);
         }
 
         // Subir archivos adjuntos
@@ -361,6 +373,33 @@ export default function TicketCreate() {
               )}
             </div>
 
+            {/* Sección de Proyecto - Visible para todos */}
+            <div className="form-section">
+              <h2>
+                <Folder size={18} style={{ marginRight: 8, verticalAlign: 'middle' }} />
+                Proyecto
+              </h2>
+              <div className="form-group">
+                <label htmlFor="projects_id">
+                  <MapPin size={16} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                  Selecciona el proyecto relacionado
+                </label>
+                <select
+                  id="projects_id"
+                  name="projects_id"
+                  value={formData.projects_id}
+                  onChange={handleChange}
+                >
+                  <option value={0}>-- Seleccionar proyecto --</option>
+                  {projects.map((proj) => (
+                    <option key={proj.id} value={proj.id}>
+                      {proj.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             {/* Sección de Asignación - Solo visible para técnicos y admins */}
             {!isClient && (
               <div className="form-section">
@@ -370,7 +409,7 @@ export default function TicketCreate() {
                   <div className="form-group">
                     <label htmlFor="locations_id">
                       <MapPin size={16} style={{ marginRight: 4, verticalAlign: 'middle' }} />
-                      Proyecto / Ubicación
+                      Ubicación
                     </label>
                     <select
                       id="locations_id"
@@ -378,7 +417,7 @@ export default function TicketCreate() {
                       value={formData.locations_id}
                       onChange={handleChange}
                     >
-                      <option value={0}>-- Seleccionar proyecto --</option>
+                      <option value={0}>-- Seleccionar ubicación --</option>
                       {locations.map((loc) => (
                         <option key={loc.id} value={loc.id}>
                           {loc.completename || loc.name}
