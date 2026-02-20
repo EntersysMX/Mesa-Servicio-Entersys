@@ -990,20 +990,25 @@ class GlpiApiService {
       console.log('📋 Obteniendo mis tickets con getMyTickets...');
 
       // Intentar con el endpoint directo primero
+      // NOTA: El endpoint /Ticket no soporta sort/order directamente,
+      // se hace el ordenamiento en el cliente
       const response = await this.api.get('/Ticket', {
         params: {
           range: params.range || '0-100',
           expand_dropdowns: true,
-          order: 'DESC',
-          sort: 'date_mod',
-          ...params
         }
       });
 
-      const tickets = response.data;
-      console.log('📋 Tickets obtenidos:', tickets);
+      let tickets = response.data;
+      console.log('📋 Tickets obtenidos:', Array.isArray(tickets) ? tickets.length : 0);
 
       if (Array.isArray(tickets)) {
+        // Ordenar por fecha de modificación descendente (más reciente primero)
+        tickets.sort((a, b) => {
+          const dateA = new Date(a.date_mod || a.date || 0);
+          const dateB = new Date(b.date_mod || b.date || 0);
+          return dateB - dateA;
+        });
         return tickets;
       }
 
