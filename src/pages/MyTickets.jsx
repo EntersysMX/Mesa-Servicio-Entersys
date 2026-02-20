@@ -64,53 +64,51 @@ export default function MyTickets() {
     console.log('🎫 GLPI Name:', user?.glpiname);
     console.log('🎫 Es cliente:', isClient);
 
+    if (!userId) {
+      console.log('❌ No hay userId, no se pueden cargar tickets');
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
       let allTickets = [];
 
-      // Usar getMyTickets que respeta los permisos de GLPI automáticamente
-      console.log('📋 Obteniendo mis tickets...');
+      // Para clientes: usar búsqueda por solicitante (field 4 = requester)
+      // Esto filtra en el servidor y solo devuelve tickets donde el usuario es solicitante
+      console.log('📋 Buscando tickets donde soy solicitante...');
       try {
-        const myTickets = await glpiApi.getMyTickets({ range: '0-200' });
-        if (Array.isArray(myTickets) && myTickets.length > 0) {
-          allTickets = myTickets;
-          console.log(`✅ ${allTickets.length} tickets encontrados (antes de filtrar)`);
+        const result = await glpiApi.getTicketsCreatedByUser(userId, { range: '0-200' });
+        const ticketData = result.data || [];
+
+        if (Array.isArray(ticketData) && ticketData.length > 0) {
+          allTickets = ticketData;
+          console.log(`✅ ${allTickets.length} tickets encontrados donde soy solicitante`);
+        } else {
+          console.log('📭 No se encontraron tickets donde seas solicitante');
         }
       } catch (e) {
-        console.log('❌ Error obteniendo tickets:', e.message);
-        setError('No se pudieron cargar los tickets. ' + e.message);
-      }
+        console.log('❌ Error en búsqueda:', e.message);
 
-      // Si es cliente, filtrar solo los tickets donde es el solicitante (requester)
-      if (isClient && userId) {
-        console.log('🔒 Filtrando tickets para cliente...');
-        const userIdNum = parseInt(userId);
-        const userEmailLower = (userEmail || user?.glpiname || '').toLowerCase();
-
-        allTickets = allTickets.filter(ticket => {
-          // Verificar si el usuario es el solicitante (users_id_recipient)
-          const recipientId = ticket.users_id_recipient;
-          if (recipientId && parseInt(recipientId) === userIdNum) {
-            return true;
+        // Fallback: intentar con getMyTickets
+        console.log('📋 Intentando método alternativo...');
+        try {
+          const myTickets = await glpiApi.getMyTickets({ range: '0-200' });
+          if (Array.isArray(myTickets) && myTickets.length > 0) {
+            // Filtrar manualmente por users_id_recipient
+            const userIdNum = parseInt(userId);
+            allTickets = myTickets.filter(ticket => {
+              const recipientId = ticket.users_id_recipient;
+              return recipientId && parseInt(recipientId) === userIdNum;
+            });
+            console.log(`✅ ${allTickets.length} tickets después de filtrar`);
           }
-
-          // Verificar por email del solicitante si está disponible
-          const ticketRequesterEmail = (ticket._users_id_recipient_email || '').toLowerCase();
-          if (ticketRequesterEmail && ticketRequesterEmail === userEmailLower) {
-            return true;
-          }
-
-          // Verificar si _isCreator está marcado
-          if (ticket._isCreator) {
-            return true;
-          }
-
-          return false;
-        });
-
-        console.log(`✅ ${allTickets.length} tickets del cliente después de filtrar`);
+        } catch (e2) {
+          console.log('❌ Error en método alternativo:', e2.message);
+          setError('No se pudieron cargar los tickets.');
+        }
       }
 
       console.log('========================================');
@@ -133,7 +131,7 @@ export default function MyTickets() {
     } finally {
       setLoading(false);
     }
-  }, [userId, user, isClient, userEmail]);
+  }, [userId, user, isClient]);
 
   useEffect(() => {
     fetchTickets();
