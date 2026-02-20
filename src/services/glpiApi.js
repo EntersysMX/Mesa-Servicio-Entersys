@@ -1176,16 +1176,20 @@ class GlpiApiService {
           ...params,
         });
       } else {
-        // Sin filtros, obtener todos
+        // Sin filtros, obtener todos (el endpoint /Ticket no soporta sort/order)
         const result = await this.getTickets({
           range: params.range || '0-50',
-          sort: 15, // Campo 15 = fecha de creación
-          order: 'DESC', // Más reciente primero
-          ...params,
+        });
+        // Ordenar en el cliente
+        let tickets = Array.isArray(result) ? result : [];
+        tickets.sort((a, b) => {
+          const dateA = new Date(a.date || 0);
+          const dateB = new Date(b.date || 0);
+          return dateB - dateA;
         });
         return {
-          data: Array.isArray(result) ? result : [],
-          totalcount: Array.isArray(result) ? result.length : 0,
+          data: tickets,
+          totalcount: tickets.length,
         };
       }
     } catch (error) {

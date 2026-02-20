@@ -78,9 +78,18 @@ export default function Dashboard() {
           .catch(() => ({ data: [] }));
         setRecentTickets(clientTickets.data || []);
       } else {
-        const allTickets = await glpiApi
-          .getTickets({ range: '0-9', order: 'DESC' })
+        // Obtener tickets sin parámetros de ordenamiento (el endpoint /Ticket no los soporta)
+        let allTickets = await glpiApi
+          .getTickets({ range: '0-9' })
           .catch(() => []);
+        // Ordenar en el cliente por fecha descendente
+        if (Array.isArray(allTickets)) {
+          allTickets.sort((a, b) => {
+            const dateA = new Date(a.date_mod || a.date || 0);
+            const dateB = new Date(b.date_mod || b.date || 0);
+            return dateB - dateA;
+          });
+        }
         setRecentTickets(Array.isArray(allTickets) ? allTickets : []);
       }
     } catch (err) {
