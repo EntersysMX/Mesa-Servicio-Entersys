@@ -5,15 +5,19 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        - VITE_GLPI_URL=${VITE_GLPI_URL:-https://glpi.entersys.mx}
-        - VITE_GLPI_APP_TOKEN=${VITE_GLPI_APP_TOKEN:-***GLPI_APP_TOKEN_REMOVED***}
-        - VITE_GLPI_USER_TOKEN=${VITE_GLPI_USER_TOKEN:-}
+        - VITE_GLPI_URL=${VITE_GLPI_URL}
+        - VITE_GLPI_APP_TOKEN=${VITE_GLPI_APP_TOKEN}
+        - VITE_GLPI_USER_TOKEN=${VITE_GLPI_USER_TOKEN}
+        - VITE_GEMINI_API_KEY=${VITE_GEMINI_API_KEY}
+        - VITE_GEMINI_MODEL=${VITE_GEMINI_MODEL}
     container_name: helpdesk-frontend
     restart: unless-stopped
     environment:
-      - VITE_GLPI_URL=${VITE_GLPI_URL:-https://glpi.entersys.mx}
-      - VITE_GLPI_APP_TOKEN=${VITE_GLPI_APP_TOKEN:-***GLPI_APP_TOKEN_REMOVED***}
-      - VITE_GLPI_USER_TOKEN=${VITE_GLPI_USER_TOKEN:-}
+      - VITE_GLPI_URL=${VITE_GLPI_URL}
+      - VITE_GLPI_APP_TOKEN=${VITE_GLPI_APP_TOKEN}
+      - VITE_GLPI_USER_TOKEN=${VITE_GLPI_USER_TOKEN}
+      - VITE_GEMINI_API_KEY=${VITE_GEMINI_API_KEY}
+      - VITE_GEMINI_MODEL=${VITE_GEMINI_MODEL}
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.helpdesk-frontend.rule=Host(`soporte.entersys.mx`)"
@@ -66,12 +70,12 @@ services:
     container_name: smartsheet-sync
     restart: unless-stopped
     environment:
-      - SMARTSHEET_TOKEN=${SMARTSHEET_TOKEN:-***SMARTSHEET_TOKEN_REMOVED***}
-      - SMARTSHEET_SHEET_ID=${SMARTSHEET_SHEET_ID:-6629881724331908}
-      - GLPI_URL=${GLPI_URL:-https://glpi.entersys.mx/apirest.php}
-      - GLPI_APP_TOKEN=${GLPI_APP_TOKEN:-***GLPI_APP_TOKEN_REMOVED***}
-      - GLPI_USERNAME=${GLPI_USERNAME:-glpi}
-      - GLPI_PASSWORD=${GLPI_PASSWORD:-glpi}
+      - SMARTSHEET_TOKEN=${SMARTSHEET_TOKEN}
+      - SMARTSHEET_SHEET_ID=${SMARTSHEET_SHEET_ID}
+      - GLPI_URL=${GLPI_URL}
+      - GLPI_APP_TOKEN=${GLPI_APP_TOKEN}
+      - GLPI_USERNAME=${GLPI_USERNAME}
+      - GLPI_PASSWORD=${GLPI_PASSWORD}
       - SYNC_INTERVAL=${SYNC_INTERVAL:-5}
     volumes:
       - sync-data:/app/data
