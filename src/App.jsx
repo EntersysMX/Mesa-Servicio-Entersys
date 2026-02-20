@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
@@ -12,6 +12,14 @@ import KanbanBoard from './pages/KanbanBoard';
 import ChangePassword from './pages/ChangePassword';
 import AIChat from './pages/AIChat';
 import './App.css';
+
+// Wrapper que fuerza remontaje cuando cambia la URL completa (path + query)
+function IndependentRoute({ children }) {
+  const location = useLocation();
+  // Usar path + search como key para que cada combinación sea independiente
+  const routeKey = location.pathname + location.search;
+  return <div key={routeKey}>{children}</div>;
+}
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -64,7 +72,9 @@ function AppRoutes() {
         path="/tickets"
         element={
           <ProtectedRoute>
-            <TicketList />
+            <IndependentRoute>
+              <TicketList />
+            </IndependentRoute>
           </ProtectedRoute>
         }
       />
