@@ -26,6 +26,30 @@ export default function Layout({ children }) {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // Limpiar nombre de entidad: "Root entity > Natura (tree structure)" -> "Natura"
+  const getCleanEntityName = () => {
+    const rawName = user?.glpiactive_entity_name;
+    if (!rawName) return null;
+
+    // Quitar "(tree structure)" o similar
+    let clean = rawName.replace(/\s*\([^)]*\)\s*$/, '').trim();
+
+    // Si tiene ">", tomar solo la última parte
+    if (clean.includes('>')) {
+      const parts = clean.split('>');
+      clean = parts[parts.length - 1].trim();
+    }
+
+    // Si es "Root entity" o similar, no mostrar
+    if (clean.toLowerCase() === 'root entity' || clean.toLowerCase() === 'entidad raíz') {
+      return null;
+    }
+
+    return clean;
+  };
+
+  const entityName = getCleanEntityName();
+
   const getRoleLabel = () => {
     if (isAdmin) return { label: 'Administrador', icon: Shield, color: '#dc2626' };
     if (isTechnician) return { label: 'Técnico', icon: Wrench, color: '#2563eb' };
@@ -161,13 +185,13 @@ export default function Layout({ children }) {
               <roleInfo.icon size={12} />
               {roleInfo.label}
             </span>
-            {user?.glpiactive_entity_name && (
+            {entityName && (
               <span className="user-entity" style={{
                 fontSize: '0.75rem',
                 color: '#6b7280',
                 marginTop: '2px'
               }}>
-                🏢 {user.glpiactive_entity_name}
+                🏢 {entityName}
               </span>
             )}
           </div>
@@ -230,14 +254,14 @@ export default function Layout({ children }) {
           <div className="header-title">
             <h1>
               Mesa de Ayuda - Entersys
-              {user?.glpiactive_entity_name && (
+              {entityName && (
                 <span style={{
                   fontSize: '0.6em',
                   fontWeight: 'normal',
                   marginLeft: '8px',
                   opacity: 0.8
                 }}>
-                  ({user.glpiactive_entity_name})
+                  ({entityName})
                 </span>
               )}
             </h1>
