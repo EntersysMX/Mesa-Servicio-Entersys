@@ -1,4 +1,4 @@
-import { Link, useLocation, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import AIChatWidget from './AIChatWidget';
 import { APP_VERSION } from '../version';
@@ -17,13 +17,16 @@ import {
   LayoutGrid,
   KeyRound,
   Bot,
+  Loader2,
 } from 'lucide-react';
 import { useState } from 'react';
 
 export default function Layout({ children }) {
   const { user, role, logout, isAdmin, isTechnician, isClient } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [navigating, setNavigating] = useState(false);
 
   const getRoleLabel = () => {
     if (isAdmin) return { label: 'Administrador', icon: Shield, color: '#dc2626' };
@@ -164,17 +167,38 @@ export default function Layout({ children }) {
         </div>
 
         <nav className="sidebar-nav">
-          {navItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`nav-item ${isItemActive(item.path) ? 'active' : ''}`}
-              onClick={() => setSidebarOpen(false)}
-            >
-              <item.icon size={20} />
-              <span>{item.label}</span>
-            </Link>
-          ))}
+          {navItems.map((item) => {
+            const isActive = isItemActive(item.path);
+            const currentFullPath = location.pathname + location.search;
+            const isSamePath = currentFullPath === item.path;
+
+            return (
+              <button
+                key={item.path}
+                className={`nav-item ${isActive ? 'active' : ''} ${navigating ? 'navigating' : ''}`}
+                onClick={() => {
+                  setSidebarOpen(false);
+                  // Si es la misma ruta, no hacer nada
+                  if (isSamePath) return;
+                  // Mostrar loading y navegar
+                  setNavigating(true);
+                  // Pequeño delay para mostrar feedback visual
+                  setTimeout(() => {
+                    navigate(item.path);
+                    setNavigating(false);
+                  }, 50);
+                }}
+                disabled={navigating}
+              >
+                {navigating && !isSamePath ? (
+                  <Loader2 size={20} className="spinning" />
+                ) : (
+                  <item.icon size={20} />
+                )}
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
         </nav>
 
         <div className="sidebar-footer">

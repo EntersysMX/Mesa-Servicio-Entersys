@@ -108,29 +108,6 @@ export default function TicketList() {
 
   const userId = user?.glpiID;
 
-  // Sincronizar filtros con URL cuando cambian los searchParams
-  useEffect(() => {
-    const assignment = searchParams.get('assignment') || 'all';
-    const status = searchParams.get('status') || 'all';
-    const priority = searchParams.get('priority') || 'all';
-    const origin = searchParams.get('origin') || 'all';
-    const technician = searchParams.get('technician') || 'all';
-    const dateFrom = searchParams.get('dateFrom') || getDefaultDateFrom();
-    const dateTo = searchParams.get('dateTo') || '';
-    const search = searchParams.get('search') || '';
-    const pageNum = parseInt(searchParams.get('page')) || 0;
-
-    setAssignmentFilter(assignment);
-    setStatusFilter(status);
-    setPriorityFilter(priority);
-    setOriginFilter(origin);
-    setTechnicianFilter(technician);
-    setDateFromFilter(dateFrom);
-    setDateToFilter(dateTo);
-    setSearchTerm(search);
-    setPage(pageNum);
-  }, [searchParams]);
-
   // Cargar estadísticas independientes (no cambian con filtros)
   const fetchStats = useCallback(async () => {
     if (!userId) return;
