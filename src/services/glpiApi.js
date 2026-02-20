@@ -648,14 +648,19 @@ class GlpiApiService {
   // Categorías - usa sesión de servicio si falla con la del usuario
   async getCategories(params = {}) {
     try {
-      return await this.getItems('ITILCategory', params);
+      const result = await this.getItems('ITILCategory', params);
+      return result;
     } catch (error) {
       // Si falla por permisos, intentar con sesión de servicio
-      if (error.message?.includes('permission') || error.message?.includes('RIGHT_MISSING')) {
+      const errorMsg = error.message || '';
+      console.log('⚠️ Error en categorías:', errorMsg);
+      if (errorMsg.includes('RIGHT_MISSING') || errorMsg.includes('permission') || errorMsg.includes('ERROR')) {
         console.log('⚠️ Sin permisos para categorías, usando sesión de servicio...');
         return this.getCategoriesWithServiceSession(params);
       }
-      throw error;
+      // Si es otro error, también intentar con servicio
+      console.log('⚠️ Error desconocido, intentando con servicio...');
+      return this.getCategoriesWithServiceSession(params);
     }
   }
 
@@ -706,14 +711,19 @@ class GlpiApiService {
   // Proyectos - usa sesión de servicio si falla con la del usuario
   async getProjects(params = {}) {
     try {
-      return await this.getItems('Project', { range: '0-100', expand_dropdowns: true, ...params });
+      const result = await this.getItems('Project', { range: '0-100', expand_dropdowns: true, ...params });
+      return result;
     } catch (error) {
       // Si falla por permisos, intentar con sesión de servicio
-      if (error.message?.includes('permission') || error.message?.includes('RIGHT_MISSING')) {
+      const errorMsg = error.message || '';
+      console.log('⚠️ Error en proyectos:', errorMsg);
+      if (errorMsg.includes('RIGHT_MISSING') || errorMsg.includes('permission') || errorMsg.includes('ERROR')) {
         console.log('⚠️ Sin permisos para proyectos, usando sesión de servicio...');
         return this.getProjectsWithServiceSession(params);
       }
-      throw error;
+      // Si es otro error, también intentar con servicio
+      console.log('⚠️ Error desconocido, intentando con servicio...');
+      return this.getProjectsWithServiceSession(params);
     }
   }
 
