@@ -352,30 +352,15 @@ class GlpiApiService {
     try {
       const followupData = {
         itemtype: 'Ticket',
-        items_id: ticketId,
+        items_id: parseInt(ticketId, 10),
         content: content,
         is_private: options.isPrivate ? 1 : 0,
-        // Habilitar notificaciones de GLPI
-        _disablenotif: false,
-        _do_not_compute_status: false,
       };
-
-      // Agregar fuente de solicitud si se especifica (para tracking)
-      if (options.requestsource_id) {
-        followupData.requesttypes_id = options.requestsource_id;
-      }
-
-      console.log('📧 Agregando seguimiento con notificación:', {
-        ticketId,
-        isPrivate: options.isPrivate,
-        contentLength: content.length
-      });
 
       const response = await this.api.post('/ITILFollowup', {
         input: followupData,
       });
 
-      console.log('✅ Seguimiento agregado, GLPI debería enviar notificación');
       return response.data;
     } catch (error) {
       throw this.handleError(error);
