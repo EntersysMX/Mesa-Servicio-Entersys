@@ -82,8 +82,12 @@ export default function TicketCreate() {
 
         // Filtrar proyectos: SOLO los de la entidad del usuario
         filteredProjects = filteredProjects.filter(proj => {
-          const projEntity = Number(proj.entities_id) || 0;
-          return projEntity === userEntityId;
+          const rawEntity = proj.entities_id;
+          const projEntity = Number(rawEntity);
+          const isNaN = Number.isNaN(projEntity);
+          const finalEntity = isNaN ? -1 : projEntity; // -1 para detectar texto
+          console.log(`📂 Proyecto "${proj.name}": raw=${rawEntity}, type=${typeof rawEntity}, num=${projEntity}, isNaN=${isNaN}, final=${finalEntity}, user=${userEntityId}, match=${finalEntity === userEntityId}`);
+          return finalEntity === userEntityId;
         });
 
         console.log('📁 Categorías después de filtrar:', filteredCategories.length);
