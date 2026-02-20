@@ -64,19 +64,21 @@ export default function TicketCreate() {
           glpiApi.getGroupTechniciansMap().catch(() => ({})),
         ]);
 
-        // Obtener la entidad activa del usuario
-        const userEntityId = user?.glpiactive_entity;
-        console.log('🏢 Entidad activa del usuario:', userEntityId);
+        // Obtener la entidad activa del usuario (convertir a número)
+        const userEntityId = Number(user?.glpiactive_entity) || 0;
+        console.log('🏢 Entidad activa del usuario:', userEntityId, 'tipo:', typeof userEntityId);
+        console.log('📂 Proyectos raw:', projectsData?.map(p => ({ id: p.id, name: p.name, entity: p.entities_id })));
 
         // Filtrar categorías por entidad del usuario
         // Mostrar las de la entidad del usuario + las recursivas de entidades padre (entities_id=0 con is_recursive=1)
         let filteredCategories = Array.isArray(categoriesData) ? categoriesData : [];
-        if (userEntityId && userEntityId > 0) {
+        if (userEntityId > 0) {
           filteredCategories = filteredCategories.filter(cat => {
+            const catEntityId = Number(cat.entities_id) || 0;
             // Categorías de la entidad del usuario
-            if (cat.entities_id === userEntityId) return true;
+            if (catEntityId === userEntityId) return true;
             // Categorías de la entidad raíz que son recursivas
-            if (cat.entities_id === 0 && cat.is_recursive === 1) return true;
+            if (catEntityId === 0 && cat.is_recursive === 1) return true;
             return false;
           });
         }
@@ -84,16 +86,16 @@ export default function TicketCreate() {
 
         // Filtrar proyectos por entidad del usuario
         let filteredProjects = Array.isArray(projectsData) ? projectsData : [];
-        if (userEntityId && userEntityId > 0) {
+        if (userEntityId > 0) {
           filteredProjects = filteredProjects.filter(proj => {
+            const projEntityId = Number(proj.entities_id) || 0;
+            console.log(`📂 Proyecto ${proj.name}: entity=${projEntityId}, user=${userEntityId}, match=${projEntityId === userEntityId}`);
             // Proyectos de la entidad del usuario
-            if (proj.entities_id === userEntityId) return true;
-            // Proyectos de la entidad raíz que son recursivos (opcional, depende de la necesidad)
-            // if (proj.entities_id === 0 && proj.is_recursive === 1) return true;
+            if (projEntityId === userEntityId) return true;
             return false;
           });
         }
-        console.log('📂 Proyectos filtrados:', filteredProjects.length);
+        console.log('📂 Proyectos filtrados:', filteredProjects.length, filteredProjects.map(p => p.name));
 
         setCategories(filteredCategories);
         setGroups(Array.isArray(groupsData) ? groupsData : []);
