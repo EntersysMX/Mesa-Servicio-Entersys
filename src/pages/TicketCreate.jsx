@@ -66,36 +66,30 @@ export default function TicketCreate() {
 
         // Obtener la entidad activa del usuario (convertir a número)
         const userEntityId = Number(user?.glpiactive_entity) || 0;
-        console.log('🏢 Entidad activa del usuario:', userEntityId, 'tipo:', typeof userEntityId);
-        console.log('📂 Proyectos raw:', projectsData?.map(p => ({ id: p.id, name: p.name, entity: p.entities_id })));
+        console.log('🏢 Entidad activa del usuario:', userEntityId);
+        console.log('📁 Categorías raw:', categoriesData?.length, categoriesData);
+        console.log('📂 Proyectos raw:', projectsData?.length, projectsData);
 
-        // Filtrar categorías por entidad del usuario
-        // Mostrar las de la entidad del usuario + las recursivas de entidades padre (entities_id=0 con is_recursive=1)
+        // Filtrar por entidad si el usuario tiene una entidad específica (no root)
         let filteredCategories = Array.isArray(categoriesData) ? categoriesData : [];
-        if (userEntityId > 0) {
-          filteredCategories = filteredCategories.filter(cat => {
-            const catEntityId = Number(cat.entities_id) || 0;
-            // Categorías de la entidad del usuario
-            if (catEntityId === userEntityId) return true;
-            // Categorías de la entidad raíz que son recursivas
-            if (catEntityId === 0 && cat.is_recursive === 1) return true;
-            return false;
-          });
-        }
-        console.log('📁 Categorías filtradas:', filteredCategories.length);
-
-        // Filtrar proyectos por entidad del usuario
         let filteredProjects = Array.isArray(projectsData) ? projectsData : [];
+
         if (userEntityId > 0) {
+          // Filtrar categorías: las de su entidad + las recursivas de root
+          filteredCategories = filteredCategories.filter(cat => {
+            const catEntity = Number(cat.entities_id) || 0;
+            return catEntity === userEntityId || (catEntity === 0 && cat.is_recursive == 1);
+          });
+
+          // Filtrar proyectos: solo los de su entidad
           filteredProjects = filteredProjects.filter(proj => {
-            const projEntityId = Number(proj.entities_id) || 0;
-            console.log(`📂 Proyecto ${proj.name}: entity=${projEntityId}, user=${userEntityId}, match=${projEntityId === userEntityId}`);
-            // Proyectos de la entidad del usuario
-            if (projEntityId === userEntityId) return true;
-            return false;
+            const projEntity = Number(proj.entities_id) || 0;
+            return projEntity === userEntityId;
           });
         }
-        console.log('📂 Proyectos filtrados:', filteredProjects.length, filteredProjects.map(p => p.name));
+
+        console.log('📁 Categorías después de filtrar:', filteredCategories.length);
+        console.log('📂 Proyectos después de filtrar:', filteredProjects.length);
 
         setCategories(filteredCategories);
         setGroups(Array.isArray(groupsData) ? groupsData : []);
