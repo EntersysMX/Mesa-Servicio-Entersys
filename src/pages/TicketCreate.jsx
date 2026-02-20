@@ -70,23 +70,21 @@ export default function TicketCreate() {
         console.log('📁 Categorías raw:', categoriesData?.length, categoriesData);
         console.log('📂 Proyectos raw:', projectsData?.length, projectsData);
 
-        // Filtrar por entidad si el usuario tiene una entidad específica (no root)
+        // Filtrar por entidad del usuario (cada empresa ve solo sus datos)
         let filteredCategories = Array.isArray(categoriesData) ? categoriesData : [];
         let filteredProjects = Array.isArray(projectsData) ? projectsData : [];
 
-        if (userEntityId > 0) {
-          // Filtrar categorías: las de su entidad + las recursivas de root
-          filteredCategories = filteredCategories.filter(cat => {
-            const catEntity = Number(cat.entities_id) || 0;
-            return catEntity === userEntityId || (catEntity === 0 && cat.is_recursive == 1);
-          });
+        // Filtrar categorías: SOLO las de la entidad del usuario (no mezclar)
+        filteredCategories = filteredCategories.filter(cat => {
+          const catEntity = Number(cat.entities_id) || 0;
+          return catEntity === userEntityId;
+        });
 
-          // Filtrar proyectos: solo los de su entidad
-          filteredProjects = filteredProjects.filter(proj => {
-            const projEntity = Number(proj.entities_id) || 0;
-            return projEntity === userEntityId;
-          });
-        }
+        // Filtrar proyectos: SOLO los de la entidad del usuario
+        filteredProjects = filteredProjects.filter(proj => {
+          const projEntity = Number(proj.entities_id) || 0;
+          return projEntity === userEntityId;
+        });
 
         console.log('📁 Categorías después de filtrar:', filteredCategories.length);
         console.log('📂 Proyectos después de filtrar:', filteredProjects.length);
