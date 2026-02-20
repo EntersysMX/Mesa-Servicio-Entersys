@@ -160,6 +160,13 @@ export default function MyTickets() {
       console.log(`   - Asignados: ${allTickets.filter(t => t._isAssigned).length}`);
       console.log('========================================');
 
+      // Ordenar tickets por fecha de creación descendente (más reciente primero)
+      allTickets.sort((a, b) => {
+        const dateA = new Date(a.date || a[15] || 0);
+        const dateB = new Date(b.date || b[15] || 0);
+        return dateB - dateA; // Descendente
+      });
+
       setTickets(allTickets);
 
       // Debug info
