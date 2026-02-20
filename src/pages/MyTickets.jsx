@@ -65,44 +65,17 @@ export default function MyTickets() {
     try {
       let allTickets = [];
 
-      // Usar búsqueda avanzada para obtener SOLO los tickets del usuario actual
-      console.log('📋 Buscando tickets donde el usuario es solicitante...');
+      // Usar getMyTickets que respeta los permisos de GLPI automáticamente
+      console.log('📋 Obteniendo mis tickets...');
       try {
-        // Buscar tickets donde el usuario es el solicitante (requesterId)
-        const createdResult = await glpiApi.searchTicketsAdvanced(
-          { requesterId: userId },
-          { range: '0-200' }
-        );
-
-        if (createdResult.data && Array.isArray(createdResult.data)) {
-          const createdTickets = await Promise.all(
-            createdResult.data.map(async (t) => {
-              const ticketId = t.id || t[2];
-              try {
-                const fullTicket = await glpiApi.getTicket(ticketId);
-                return { ...fullTicket, _isCreator: true, _isAssigned: false };
-              } catch (e) {
-                return null;
-              }
-            })
-          );
-          allTickets = createdTickets.filter(t => t !== null);
-          console.log(`✅ ${allTickets.length} tickets encontrados como solicitante`);
+        const myTickets = await glpiApi.getMyTickets({ range: '0-200' });
+        if (Array.isArray(myTickets) && myTickets.length > 0) {
+          allTickets = myTickets;
+          console.log(`✅ ${allTickets.length} tickets encontrados`);
         }
       } catch (e) {
-        console.log('❌ Error en búsqueda:', e.message);
-
-        // Fallback: usar getMyTickets que respeta los permisos de GLPI
-        console.log('📋 Fallback: usando getMyTickets...');
-        try {
-          const myTickets = await glpiApi.getMyTickets({ range: '0-100' });
-          if (Array.isArray(myTickets) && myTickets.length > 0) {
-            allTickets = myTickets.map(t => ({ ...t, _isCreator: true, _isAssigned: false }));
-            console.log(`✅ Fallback: ${allTickets.length} tickets encontrados`);
-          }
-        } catch (e2) {
-          console.log('❌ Fallback falló:', e2.message);
-        }
+        console.log('❌ Error obteniendo tickets:', e.message);
+        setError('No se pudieron cargar los tickets. ' + e.message);
       }
 
       console.log('========================================');
