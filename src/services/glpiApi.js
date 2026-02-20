@@ -645,9 +645,47 @@ class GlpiApiService {
     });
   }
 
-  // Categorías
+  // Categorías - usa sesión de servicio si falla con la del usuario
   async getCategories(params = {}) {
-    return this.getItems('ITILCategory', params);
+    try {
+      return await this.getItems('ITILCategory', params);
+    } catch (error) {
+      // Si falla por permisos, intentar con sesión de servicio
+      if (error.message?.includes('permission') || error.message?.includes('RIGHT_MISSING')) {
+        console.log('⚠️ Sin permisos para categorías, usando sesión de servicio...');
+        return this.getCategoriesWithServiceSession(params);
+      }
+      throw error;
+    }
+  }
+
+  // Obtener categorías con sesión de servicio (admin)
+  async getCategoriesWithServiceSession(params = {}) {
+    try {
+      const config = getConfig();
+      // Crear sesión temporal con credenciales de servicio
+      const credentials = btoa('glpi:glpi');
+      const initRes = await this.api.get('/initSession', {
+        headers: { Authorization: `Basic ${credentials}` }
+      });
+      const serviceToken = initRes.data.session_token;
+
+      // Obtener categorías con la sesión de servicio
+      const response = await this.api.get('/ITILCategory', {
+        params: { range: '0-100', ...params },
+        headers: { 'Session-Token': serviceToken }
+      });
+
+      // Cerrar sesión de servicio
+      await this.api.get('/killSession', {
+        headers: { 'Session-Token': serviceToken }
+      }).catch(() => {});
+
+      return response.data;
+    } catch (error) {
+      console.error('Error obteniendo categorías con servicio:', error);
+      return [];
+    }
   }
 
   // Entidades
@@ -665,9 +703,46 @@ class GlpiApiService {
     return this.getItems('Location', { range: '0-100', ...params });
   }
 
-  // Proyectos
+  // Proyectos - usa sesión de servicio si falla con la del usuario
   async getProjects(params = {}) {
-    return this.getItems('Project', { range: '0-100', expand_dropdowns: true, ...params });
+    try {
+      return await this.getItems('Project', { range: '0-100', expand_dropdowns: true, ...params });
+    } catch (error) {
+      // Si falla por permisos, intentar con sesión de servicio
+      if (error.message?.includes('permission') || error.message?.includes('RIGHT_MISSING')) {
+        console.log('⚠️ Sin permisos para proyectos, usando sesión de servicio...');
+        return this.getProjectsWithServiceSession(params);
+      }
+      throw error;
+    }
+  }
+
+  // Obtener proyectos con sesión de servicio (admin)
+  async getProjectsWithServiceSession(params = {}) {
+    try {
+      // Crear sesión temporal con credenciales de servicio
+      const credentials = btoa('glpi:glpi');
+      const initRes = await this.api.get('/initSession', {
+        headers: { Authorization: `Basic ${credentials}` }
+      });
+      const serviceToken = initRes.data.session_token;
+
+      // Obtener proyectos con la sesión de servicio
+      const response = await this.api.get('/Project', {
+        params: { range: '0-100', expand_dropdowns: true, ...params },
+        headers: { 'Session-Token': serviceToken }
+      });
+
+      // Cerrar sesión de servicio
+      await this.api.get('/killSession', {
+        headers: { 'Session-Token': serviceToken }
+      }).catch(() => {});
+
+      return response.data;
+    } catch (error) {
+      console.error('Error obteniendo proyectos con servicio:', error);
+      return [];
+    }
   }
 
   // Asociar ticket a proyecto
