@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || 'AIzaSyBGNgEBiPzgg8HI6yLtCYGFB2NWJi5WCpA';
 const GEMINI_MODEL = import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.0-flash';
 
 const SYSTEM_INSTRUCTIONS = `
