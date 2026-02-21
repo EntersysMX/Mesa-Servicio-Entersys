@@ -113,8 +113,13 @@ export default function TicketDetail() {
   // Cache de nombres de usuarios para el timeline
   const [usersCache, setUsersCache] = useState({});
 
+  // Estado para verificar si el usuario actual está asignado al ticket
+  const [isAssignedToMe, setIsAssignedToMe] = useState(false);
+
   const canAssign = isAdmin || isTechnician;
   const canEdit = isAdmin || isTechnician;
+  // Solo puede resolver/cerrar si es admin O si está asignado al ticket
+  const canResolve = isAdmin || isAssignedToMe;
 
   // Cargar ticket y datos relacionados
   const fetchTicket = useCallback(async () => {
@@ -175,12 +180,19 @@ export default function TicketDetail() {
       const sla = await glpiApi.getTicketSLA(id);
       setSlaInfo(sla);
 
-      // Cargar asignaciones actuales (solo si puede asignar)
-      if (canAssign) {
-        const assignees = await glpiApi.getTicketAssignees(id);
-        setCurrentAssignees(assignees);
+      // Cargar asignaciones actuales
+      const assignees = await glpiApi.getTicketAssignees(id);
+      setCurrentAssignees(assignees);
 
-        // Filtrar técnicos si hay grupo asignado
+      // Verificar si el usuario actual está asignado al ticket (type=2 es técnico asignado)
+      const currentUserId = user?.glpiID;
+      const assignedUsers = assignees.users?.filter(u => u.type === 2) || [];
+      const userIsAssigned = assignedUsers.some(u => Number(u.users_id) === Number(currentUserId));
+      setIsAssignedToMe(userIsAssigned);
+      console.log('👤 Usuario actual:', currentUserId, '¿Asignado?:', userIsAssigned);
+
+      // Filtrar técnicos si hay grupo asignado
+      if (canAssign) {
         const currentGroup = assignees.groups.find(a => a.type === 2);
         if (currentGroup && groupTechniciansMap[Number(currentGroup.groups_id)]) {
           const techIds = groupTechniciansMap[Number(currentGroup.groups_id)];
@@ -195,7 +207,7 @@ export default function TicketDetail() {
     } finally {
       setLoading(false);
     }
-  }, [id, canAssign]);
+  }, [id, canAssign, user]);
 
   // Manejar drag and drop de archivos
   const handleDrag = (e) => {
@@ -1155,7 +1167,7 @@ Mesa de Ayuda - Entersys
                     En Espera
                   </button>
                 )}
-                {ticket.status !== 5 && (
+                {ticket.status !== 5 && canResolve && (
                   <button
                     onClick={() => handleQuickStatusChange(5)}
                     className="btn btn-sm btn-success"
@@ -1165,7 +1177,7 @@ Mesa de Ayuda - Entersys
                     Resolver
                   </button>
                 )}
-                {ticket.status !== 6 && (
+                {ticket.status !== 6 && canResolve && (
                   <button
                     onClick={() => handleQuickStatusChange(6)}
                     className="btn btn-sm btn-secondary"

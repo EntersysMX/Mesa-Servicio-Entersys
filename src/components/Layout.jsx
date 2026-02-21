@@ -96,6 +96,11 @@ export default function Layout({ children }) {
     // Técnicos - Gestión de tickets
     if (isTechnician) {
       items.push({
+        path: '/my-tickets',
+        label: 'Mis Tickets Creados',
+        icon: Ticket,
+      });
+      items.push({
         path: '/tickets?assignment=mine',
         label: 'Mis Asignados',
         icon: Ticket,
@@ -114,6 +119,11 @@ export default function Layout({ children }) {
 
     // Admin - Gestión completa
     if (isAdmin) {
+      items.push({
+        path: '/my-tickets',
+        label: 'Mis Tickets Creados',
+        icon: Ticket,
+      });
       items.push({
         path: '/tickets?assignment=mine',
         label: 'Mis Asignados',

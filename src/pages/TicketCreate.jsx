@@ -70,25 +70,25 @@ export default function TicketCreate() {
         console.log('📁 Categorías raw:', categoriesData?.length, categoriesData);
         console.log('📂 Proyectos raw:', projectsData?.length, projectsData);
 
-        // Filtrar por entidad del usuario (cada empresa ve solo sus datos)
+        // Filtrar por entidad del usuario
         let filteredCategories = Array.isArray(categoriesData) ? categoriesData : [];
         let filteredProjects = Array.isArray(projectsData) ? projectsData : [];
 
-        // Filtrar categorías: SOLO las de la entidad del usuario (no mezclar)
-        filteredCategories = filteredCategories.filter(cat => {
-          const catEntity = Number(cat.entities_id) || 0;
-          return catEntity === userEntityId;
-        });
+        // Solo filtrar para CLIENTES - técnicos ven todo
+        if (isClient) {
+          // Filtrar categorías: SOLO las de la entidad del cliente
+          filteredCategories = filteredCategories.filter(cat => {
+            const catEntity = Number(cat.entities_id) || 0;
+            return catEntity === userEntityId;
+          });
 
-        // Filtrar proyectos: SOLO los de la entidad del usuario
-        filteredProjects = filteredProjects.filter(proj => {
-          const rawEntity = proj.entities_id;
-          const projEntity = Number(rawEntity);
-          const isNaN = Number.isNaN(projEntity);
-          const finalEntity = isNaN ? -1 : projEntity; // -1 para detectar texto
-          console.log(`📂 Proyecto "${proj.name}": raw=${rawEntity}, type=${typeof rawEntity}, num=${projEntity}, isNaN=${isNaN}, final=${finalEntity}, user=${userEntityId}, match=${finalEntity === userEntityId}`);
-          return finalEntity === userEntityId;
-        });
+          // Filtrar proyectos: SOLO los de la entidad del cliente
+          filteredProjects = filteredProjects.filter(proj => {
+            const projEntity = Number(proj.entities_id) || 0;
+            return projEntity === userEntityId;
+          });
+        }
+        // Técnicos ven todas las categorías y proyectos
 
         console.log('📁 Categorías después de filtrar:', filteredCategories.length);
         console.log('📂 Proyectos después de filtrar:', filteredProjects.length);
