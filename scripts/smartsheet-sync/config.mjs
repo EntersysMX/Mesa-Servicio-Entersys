@@ -6,17 +6,17 @@
 export const CONFIG = {
   // Smartsheet
   smartsheet: {
-    apiToken: process.env.SMARTSHEET_TOKEN || '***SMARTSHEET_TOKEN_REMOVED***',
-    sheetId: process.env.SMARTSHEET_SHEET_ID || '6629881724331908',
+    apiToken: process.env.SMARTSHEET_TOKEN || '',
+    sheetId: process.env.SMARTSHEET_SHEET_ID || '',
     baseUrl: 'https://api.smartsheet.com/2.0',
   },
 
   // GLPI
   glpi: {
     url: process.env.GLPI_URL || 'https://glpi.entersys.mx/apirest.php',
-    appToken: process.env.GLPI_APP_TOKEN || '***GLPI_APP_TOKEN_REMOVED***',
-    username: process.env.GLPI_USERNAME || 'glpi',
-    password: process.env.GLPI_PASSWORD || 'glpi',
+    appToken: process.env.GLPI_APP_TOKEN || '',
+    username: process.env.GLPI_USERNAME || '',
+    password: process.env.GLPI_PASSWORD || '',
   },
 
   // Mapeo de columnas Smartsheet → GLPI

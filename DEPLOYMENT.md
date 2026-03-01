@@ -93,7 +93,7 @@ git clone https://github.com/EntersysMX/Mesa-Servicio-Entersys .
 # 4. Crear archivo .env
 cat > .env << 'EOF'
 VITE_GLPI_URL=https://glpi.entersys.mx
-VITE_GLPI_APP_TOKEN=***GLPI_APP_TOKEN_REMOVED***
+VITE_GLPI_APP_TOKEN=<TU_APP_TOKEN_AQUI>
 VITE_GLPI_USER_TOKEN=
 TZ=America/Mexico_City
 EOF

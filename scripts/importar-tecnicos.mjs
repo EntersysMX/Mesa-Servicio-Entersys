@@ -25,10 +25,10 @@ const __dirname = path.dirname(__filename);
 
 // Configuración de GLPI
 const CONFIG = {
-  glpiUrl: 'https://glpi.entersys.mx/apirest.php',
-  appToken: '***GLPI_APP_TOKEN_REMOVED***',
-  username: 'glpi',
-  password: 'glpi',
+  glpiUrl: process.env.GLPI_URL || 'https://glpi.entersys.mx/apirest.php',
+  appToken: process.env.GLPI_APP_TOKEN || '',
+  username: process.env.GLPI_USERNAME || '',
+  password: process.env.GLPI_PASSWORD || '',
   profileId: 6,      // ID del perfil Technician
   entityId: 0,       // ID de la entidad Root
   isRecursive: 1,    // Acceso recursivo a sub-entidades

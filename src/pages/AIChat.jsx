@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 
-const GEMINI_API_KEY = '***GEMINI_API_KEY_REMOVED***';
-const GEMINI_MODEL = 'gemini-2.5-flash';
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
+const GEMINI_MODEL = import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.5-flash';
 
 // Instrucciones de la gema del usuario
 const SYSTEM_INSTRUCTIONS = `

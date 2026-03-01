@@ -5,20 +5,19 @@
  */
 import axios from 'axios';
 
-// Configuración SMTP - GUARDAR AQUÍ LA CONTRASEÑA
 const SMTP_CONFIG = {
-  password: '***SMTP_PASSWORD_REMOVED***',  // App password de Gmail
-  host: 'smtp.gmail.com',
-  port: '587',
-  username: 'armando.maldonado@entersys.mx'
+  password: process.env.SMTP_PASSWORD || '',
+  host: process.env.SMTP_HOST || 'smtp.gmail.com',
+  port: process.env.SMTP_PORT || '587',
+  username: process.env.SMTP_EMAIL || '',
 };
 
 const CONFIG = {
   glpi: {
-    url: 'https://glpi.entersys.mx/apirest.php',
-    appToken: '***GLPI_APP_TOKEN_REMOVED***',
-    username: 'glpi',
-    password: 'glpi',
+    url: process.env.GLPI_URL || 'https://glpi.entersys.mx/apirest.php',
+    appToken: process.env.GLPI_APP_TOKEN || '',
+    username: process.env.GLPI_USERNAME || '',
+    password: process.env.GLPI_PASSWORD || '',
   }
 };
 

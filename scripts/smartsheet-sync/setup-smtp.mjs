@@ -10,7 +10,7 @@ const api = axios.create({
   },
 });
 
-const SMTP_PASSWORD = '***SMTP_PASSWORD_REMOVED***';
+const SMTP_PASSWORD = process.env.SMTP_PASSWORD || '';
 
 async function setupSmtp() {
   const auth = Buffer.from(`${CONFIG.glpi.username}:${CONFIG.glpi.password}`).toString('base64');

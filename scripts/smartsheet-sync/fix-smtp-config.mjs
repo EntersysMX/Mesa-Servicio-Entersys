@@ -6,21 +6,21 @@ import axios from 'axios';
 
 const CONFIG = {
   glpi: {
-    url: 'https://glpi.entersys.mx/apirest.php',
-    appToken: '***GLPI_APP_TOKEN_REMOVED***',
-    username: 'glpi',
-    password: 'glpi',
+    url: process.env.GLPI_URL || 'https://glpi.entersys.mx/apirest.php',
+    appToken: process.env.GLPI_APP_TOKEN || '',
+    username: process.env.GLPI_USERNAME || '',
+    password: process.env.GLPI_PASSWORD || '',
   }
 };
 
 const SMTP_CONFIG = {
-  smtp_host: 'smtp.gmail.com',
-  smtp_port: '587',           // TLS - mejor para Gmail
+  smtp_host: process.env.SMTP_HOST || 'smtp.gmail.com',
+  smtp_port: process.env.SMTP_PORT || '587',
   smtp_mode: '1',             // 1 = SMTP+TLS
-  smtp_username: 'armando.maldonado@entersys.mx',
-  smtp_passwd: '***SMTP_PASSWORD_REMOVED***',
-  smtp_sender: 'armando.maldonado@entersys.mx',
-  from_email: 'armando.maldonado@entersys.mx',
+  smtp_username: process.env.SMTP_EMAIL || '',
+  smtp_passwd: process.env.SMTP_PASSWORD || '',
+  smtp_sender: process.env.SMTP_EMAIL || '',
+  from_email: process.env.SMTP_EMAIL || '',
   from_email_name: 'GLPI Mesa de Ayuda',
   admin_email_name: 'Soporte Entersys',
   notifications_mailing: '1',

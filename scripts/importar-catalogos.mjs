@@ -17,10 +17,10 @@ import axios from 'axios';
 import path from 'path';
 
 const CONFIG = {
-  glpiUrl: 'https://glpi.entersys.mx/apirest.php',
-  appToken: '***GLPI_APP_TOKEN_REMOVED***',
-  username: 'glpi',
-  password: 'glpi',
+  glpiUrl: process.env.GLPI_URL || 'https://glpi.entersys.mx/apirest.php',
+  appToken: process.env.GLPI_APP_TOKEN || '',
+  username: process.env.GLPI_USERNAME || '',
+  password: process.env.GLPI_PASSWORD || '',
 };
 
 let sessionToken = null;

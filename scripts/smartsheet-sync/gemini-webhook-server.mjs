@@ -2,18 +2,18 @@
 import express from 'express';
 import axios from 'axios';
 
-// Configuración
+// Configuración - todas las credenciales vienen de variables de entorno
 const CONFIG = {
-  port: 3001,
+  port: parseInt(process.env.WEBHOOK_PORT) || 3001,
   gemini: {
-    apiKey: '***GEMINI_API_KEY_REMOVED***',
-    model: 'gemini-2.0-flash',
+    apiKey: process.env.GEMINI_API_KEY || '',
+    model: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
   },
   glpi: {
-    url: 'https://glpi.entersys.mx/apirest.php',
-    appToken: '***GLPI_APP_TOKEN_REMOVED***',
-    username: 'glpi',
-    password: 'glpi',
+    url: process.env.GLPI_URL || 'https://glpi.entersys.mx/apirest.php',
+    appToken: process.env.GLPI_APP_TOKEN || '',
+    username: process.env.GLPI_USERNAME || '',
+    password: process.env.GLPI_PASSWORD || '',
   }
 };
 

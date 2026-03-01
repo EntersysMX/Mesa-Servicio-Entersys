@@ -1,9 +1,8 @@
 import axios from 'axios';
 
-// Configuración hardcodeada como fallback - Producción
 const FALLBACK_CONFIG = {
-  glpiUrl: import.meta.env.VITE_GLPI_URL || 'https://glpi.entersys.mx',
-  appToken: import.meta.env.VITE_GLPI_APP_TOKEN || '***GLPI_APP_TOKEN_REMOVED***',
+  glpiUrl: import.meta.env.VITE_GLPI_URL || '',
+  appToken: import.meta.env.VITE_GLPI_APP_TOKEN || '',
   userToken: import.meta.env.VITE_GLPI_USER_TOKEN || '',
 };
 
