@@ -1307,6 +1307,17 @@ class GlpiApiService {
         criteriaIndex++;
       }
 
+      // Filtro por entidad/empresa
+      if (filters.entity && filters.entity !== 'all') {
+        criteria.push({
+          field: 80, // Campo de entidad
+          searchtype: 'equals',
+          value: filters.entity,
+          link: criteriaIndex > 0 ? 'AND' : undefined,
+        });
+        criteriaIndex++;
+      }
+
       if (criteria.length > 0) {
         return this.search('Ticket', criteria, {
           range: params.range || '0-50',

@@ -54,6 +54,12 @@ export default function TicketList() {
   const [technicianFilter, setTechnicianFilter] = useState(
     searchParams.get('technician') || 'all'
   );
+  const [entityFilter, setEntityFilter] = useState(
+    searchParams.get('entity') || 'all'
+  );
+
+  // Entidades disponibles para el usuario
+  const [userEntities, setUserEntities] = useState([]);
 
   // Por defecto mostrar tickets de los últimos 7 días
   const getDefaultDateFrom = () => {
@@ -140,10 +146,11 @@ export default function TicketList() {
     const loadAuxData = async () => {
       if (isAdmin || isTechnician) {
         try {
-          const [techData, groupData, groupMapData] = await Promise.all([
+          const [techData, groupData, groupMapData, entitiesData] = await Promise.all([
             glpiApi.getTechnicians().catch(() => []),
             glpiApi.getGroups().catch(() => []),
             glpiApi.getGroupTechniciansMap().catch(() => ({})),
+            glpiApi.getEntities().catch(() => []),
           ]);
           const techList = Array.isArray(techData) ? techData : [];
           setTechnicians(techList);
@@ -151,6 +158,10 @@ export default function TicketList() {
           setFilteredTechnicians(techList);
           setGroups(Array.isArray(groupData) ? groupData : []);
           setGroupTechniciansMap(groupMapData || {});
+
+          // Cargar entidades del usuario
+          const entities = Array.isArray(entitiesData) ? entitiesData : [];
+          setUserEntities(entities);
         } catch (err) {
           console.error('Error loading aux data:', err);
         }
@@ -265,6 +276,11 @@ export default function TicketList() {
         filters.assignedTo = parseInt(technicianFilter, 10);
       }
 
+      // Aplicar filtro de entidad/empresa
+      if (entityFilter !== 'all') {
+        filters.entity = parseInt(entityFilter, 10);
+      }
+
       // Aplicar filtro de fechas
       if (dateFromFilter) {
         filters.dateFrom = dateFromFilter;
@@ -301,7 +317,7 @@ export default function TicketList() {
     } finally {
       setLoading(false);
     }
-  }, [page, assignmentFilter, statusFilter, priorityFilter, originFilter, technicianFilter, dateFromFilter, dateToFilter, searchTerm, userId]);
+  }, [page, assignmentFilter, statusFilter, priorityFilter, originFilter, technicianFilter, entityFilter, dateFromFilter, dateToFilter, searchTerm, userId]);
 
   // Efecto para cargar tickets
   useEffect(() => {
@@ -321,12 +337,13 @@ export default function TicketList() {
     if (priorityFilter !== 'all') params.set('priority', priorityFilter);
     if (originFilter !== 'all') params.set('origin', originFilter);
     if (technicianFilter !== 'all') params.set('technician', technicianFilter);
+    if (entityFilter !== 'all') params.set('entity', entityFilter);
     if (dateFromFilter) params.set('dateFrom', dateFromFilter);
     if (dateToFilter) params.set('dateTo', dateToFilter);
     if (searchTerm) params.set('search', searchTerm);
     if (page > 0) params.set('page', page.toString());
     setSearchParams(params, { replace: true });
-  }, [assignmentFilter, statusFilter, priorityFilter, originFilter, technicianFilter, dateFromFilter, dateToFilter, searchTerm, page, setSearchParams]);
+  }, [assignmentFilter, statusFilter, priorityFilter, originFilter, technicianFilter, entityFilter, dateFromFilter, dateToFilter, searchTerm, page, setSearchParams]);
 
   // Handlers
   const handleSearch = (e) => {
@@ -385,6 +402,7 @@ export default function TicketList() {
     if (filterType === 'priority') setPriorityFilter(value);
     if (filterType === 'origin') setOriginFilter(value);
     if (filterType === 'technician') setTechnicianFilter(value);
+    if (filterType === 'entity') setEntityFilter(value);
     if (filterType === 'dateFrom') setDateFromFilter(value);
     if (filterType === 'dateTo') setDateToFilter(value);
   };
@@ -395,6 +413,7 @@ export default function TicketList() {
     setPriorityFilter('all');
     setOriginFilter('all');
     setTechnicianFilter('all');
+    setEntityFilter('all');
     setDateFromFilter('');
     setDateToFilter('');
     setSearchTerm('');
@@ -537,9 +556,13 @@ export default function TicketList() {
     priorityFilter !== 'all' ||
     originFilter !== 'all' ||
     technicianFilter !== 'all' ||
+    entityFilter !== 'all' ||
     dateFromFilter !== '' ||
     dateToFilter !== '' ||
     searchTerm !== '';
+
+  // Mostrar filtro de entidad solo si el usuario tiene más de una entidad
+  const showEntityFilter = (isAdmin || isTechnician) && userEntities.length > 1;
 
   return (
     <div className="page-container ticket-management">
@@ -777,6 +800,26 @@ export default function TicketList() {
                 {technicians.map((tech) => (
                   <option key={tech.id} value={tech.id}>
                     {tech.realname || tech.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {showEntityFilter && (
+            <div className="filter-group">
+              <label>
+                <Users size={14} />
+                Empresa:
+              </label>
+              <select
+                value={entityFilter}
+                onChange={(e) => handleFilterChange('entity', e.target.value)}
+              >
+                <option value="all">Todas</option>
+                {userEntities.map((entity) => (
+                  <option key={entity.id} value={entity.id}>
+                    {entity.name || entity.completename}
                   </option>
                 ))}
               </select>
