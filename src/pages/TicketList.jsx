@@ -302,6 +302,27 @@ export default function TicketList() {
 
       let ticketData = result.data || [];
 
+      // Filtrar por entidad exacta (GLPI puede incluir sub-entidades)
+      if (entityFilter !== 'all') {
+        const entityId = parseInt(entityFilter, 10);
+        ticketData = ticketData.filter(ticket => {
+          const ticketEntity = ticket.entities_id || ticket[80];
+          // Comparar tanto ID numérico como nombre
+          if (typeof ticketEntity === 'number') {
+            return ticketEntity === entityId;
+          }
+          // Si es string (nombre), verificar coincidencia exacta
+          if (entityId === 0) {
+            return ticketEntity === 'Root entity' || ticketEntity === 0;
+          }
+          if (entityId === 1) {
+            return ticketEntity === 'Natura' || ticketEntity === 1 ||
+                   (typeof ticketEntity === 'string' && ticketEntity.includes('Natura') && !ticketEntity.includes('>'));
+          }
+          return Number(ticketEntity) === entityId;
+        });
+      }
+
       // Ordenar por fecha descendente (más reciente primero) como fallback
       ticketData.sort((a, b) => {
         const dateA = new Date(a.date || a[15] || 0);
@@ -310,7 +331,7 @@ export default function TicketList() {
       });
 
       setTickets(ticketData);
-      setTotalCount(result.totalcount || ticketData.length);
+      setTotalCount(entityFilter !== 'all' ? ticketData.length : (result.totalcount || ticketData.length));
     } catch (err) {
       setError(err.message);
       setTickets([]);
@@ -817,11 +838,18 @@ export default function TicketList() {
                 onChange={(e) => handleFilterChange('entity', e.target.value)}
               >
                 <option value="all">Todas</option>
-                {userEntities.map((entity) => (
-                  <option key={entity.id} value={entity.id}>
-                    {entity.name || entity.completename}
-                  </option>
-                ))}
+                {userEntities.map((entity) => {
+                  // Renombrar "Root entity" a "Entersys"
+                  let displayName = entity.name || entity.completename;
+                  if (displayName === 'Root entity' || entity.id === 0) {
+                    displayName = 'Entersys';
+                  }
+                  return (
+                    <option key={entity.id} value={entity.id}>
+                      {displayName}
+                    </option>
+                  );
+                })}
               </select>
             </div>
           )}
