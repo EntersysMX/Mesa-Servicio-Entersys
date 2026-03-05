@@ -317,7 +317,7 @@ export default function TicketList() {
           }
           if (entityId === 1) {
             return ticketEntity === 'Natura' || ticketEntity === 1 ||
-                   (typeof ticketEntity === 'string' && ticketEntity.includes('Natura') && !ticketEntity.includes('>'));
+                   (typeof ticketEntity === 'string' && ticketEntity.includes('Natura'));
           }
           return Number(ticketEntity) === entityId;
         });

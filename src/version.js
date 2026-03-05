@@ -1,3 +1,3 @@
 // Versión del portal - Actualizar con cada deploy
-export const APP_VERSION = '1.0.3.2';
-export const APP_BUILD_DATE = '2026-02-25';
+export const APP_VERSION = '1.0.3.3';
+export const APP_BUILD_DATE = '2026-03-05';
