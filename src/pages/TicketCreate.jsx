@@ -189,6 +189,10 @@ export default function TicketCreate() {
       const requesterId = user?.glpiID;
       console.log('👤 Usuario logueado (solicitante):', user?.glpiname, 'ID:', requesterId);
 
+      // Obtener la entidad del usuario para asignar al ticket
+      const userEntityId = Number(user?.glpiactive_entity) || 0;
+      console.log('🏢 Creando ticket en entidad:', userEntityId);
+
       // Preparar datos del ticket con origen Portal
       const ticketData = {
         name: formData.name,
@@ -199,6 +203,8 @@ export default function TicketCreate() {
         priority: formData.priority,
         itilcategories_id: formData.itilcategories_id || undefined,
         locations_id: formData.locations_id || undefined,
+        // Asignar ticket a la entidad del usuario
+        entities_id: userEntityId,
         // Establecer el solicitante como el usuario logueado
         _users_id_requester: requesterId || undefined,
       };
