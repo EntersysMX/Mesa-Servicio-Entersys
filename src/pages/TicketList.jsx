@@ -462,6 +462,9 @@ export default function TicketList() {
     }
 
     setAssigning(true);
+    let hasError = false;
+    let errorMsg = '';
+
     try {
       // Verificar asignaciones existentes
       const currentAssignment = ticketAssignments[ticketId];
@@ -471,7 +474,15 @@ export default function TicketList() {
         if (currentAssignment?.userAssignmentId) {
           await glpiApi.removeTicketUserAssignment(currentAssignment.userAssignmentId).catch(() => {});
         }
-        await glpiApi.assignTicketToUser(ticketId, parseInt(quickAssignTech, 10));
+        try {
+          await glpiApi.assignTicketToUser(ticketId, parseInt(quickAssignTech, 10));
+        } catch (e) {
+          // Ignorar errores de permiso si es solo advertencia
+          if (!e.message?.includes('permission')) {
+            hasError = true;
+            errorMsg = e.message;
+          }
+        }
       }
 
       // Si hay grupo nuevo y ya existía uno, primero eliminar el anterior
@@ -479,7 +490,15 @@ export default function TicketList() {
         if (currentAssignment?.groupAssignmentId) {
           await glpiApi.removeTicketGroupAssignment(currentAssignment.groupAssignmentId).catch(() => {});
         }
-        await glpiApi.assignTicketToGroup(ticketId, parseInt(quickAssignGroup, 10));
+        try {
+          await glpiApi.assignTicketToGroup(ticketId, parseInt(quickAssignGroup, 10));
+        } catch (e) {
+          // Ignorar errores de permiso si es solo advertencia
+          if (!e.message?.includes('permission')) {
+            hasError = true;
+            errorMsg = e.message;
+          }
+        }
       }
 
       setShowQuickAssign(null);
@@ -488,6 +507,10 @@ export default function TicketList() {
       setFilteredTechnicians(allTechnicians);
       fetchTickets();
       fetchStats();
+
+      if (hasError) {
+        setError('Error al asignar: ' + errorMsg);
+      }
     } catch (err) {
       setError('Error al asignar: ' + err.message);
     } finally {
