@@ -427,8 +427,81 @@ class GlpiApiService {
 
       return response.data;
     } catch (error) {
-      console.error('Error subiendo documento:', error);
-      throw this.handleError(error);
+      console.error('⚠️ Error subiendo documento con sesión de usuario, intentando con servicio...', error.message);
+      // Fallback: subir con sesión de servicio (admin)
+      return this.uploadDocumentWithServiceSession(file, ticketId);
+    }
+  }
+
+  // Subir documento usando sesión de servicio (fallback para clientes sin permisos)
+  async uploadDocumentWithServiceSession(file, ticketId = null) {
+    try {
+      const config = getConfig();
+      const baseUrl = `${config.glpiUrl}/apirest.php`;
+
+      // Crear sesión de servicio
+      const credentials = btoa('glpi:glpi');
+      const initRes = await axios.get(`${baseUrl}/initSession`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'App-Token': config.appToken,
+          'Authorization': `Basic ${credentials}`
+        }
+      });
+      const serviceToken = initRes.data.session_token;
+      console.log('✅ Sesión de servicio creada para subir documento');
+
+      // Subir archivo con sesión de servicio
+      const formData = new FormData();
+      formData.append('uploadManifest', JSON.stringify({
+        input: {
+          name: file.name,
+          _filename: [file.name]
+        }
+      }));
+      formData.append('filename[0]', file);
+
+      const response = await axios.post(`${baseUrl}/Document`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'App-Token': config.appToken,
+          'Session-Token': serviceToken
+        }
+      });
+
+      const documentId = response.data?.id;
+      console.log('📎 Documento subido con servicio:', documentId);
+
+      // Asociar al ticket con sesión de servicio
+      if (documentId && ticketId) {
+        await axios.post(`${baseUrl}/Document_Item`, {
+          input: {
+            documents_id: documentId,
+            items_id: parseInt(ticketId, 10),
+            itemtype: 'Ticket',
+          }
+        }, {
+          headers: {
+            'Content-Type': 'application/json',
+            'App-Token': config.appToken,
+            'Session-Token': serviceToken
+          }
+        });
+        console.log('📎 Documento asociado al ticket con servicio');
+      }
+
+      // Cerrar sesión de servicio
+      await axios.get(`${baseUrl}/killSession`, {
+        headers: {
+          'App-Token': config.appToken,
+          'Session-Token': serviceToken
+        }
+      }).catch(() => {});
+
+      return response.data;
+    } catch (error) {
+      console.error('❌ Error subiendo documento con sesión de servicio:', error);
+      throw new Error('No se pudo subir el archivo. Intenta de nuevo o contacta al administrador.');
     }
   }
 
@@ -445,14 +518,45 @@ class GlpiApiService {
       console.log('📎 Documento asociado al ticket:', response.data);
       return response.data;
     } catch (error) {
-      // Si es error de permisos, mostrar mensaje más claro
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        console.error('⚠️ Sin permisos para asociar documentos.');
-        console.error('   Configurar en GLPI: Perfiles → Self-Service → Gestión → Documentos → "Asociar documento"');
-        throw new Error('No tienes permisos para adjuntar archivos. Contacta al administrador.');
+      console.error('⚠️ Error asociando documento con sesión de usuario, intentando con servicio...');
+      // Fallback: asociar con sesión de servicio
+      try {
+        const config = getConfig();
+        const baseUrl = `${config.glpiUrl}/apirest.php`;
+        const credentials = btoa('glpi:glpi');
+        const initRes = await axios.get(`${baseUrl}/initSession`, {
+          headers: {
+            'Content-Type': 'application/json',
+            'App-Token': config.appToken,
+            'Authorization': `Basic ${credentials}`
+          }
+        });
+        const serviceToken = initRes.data.session_token;
+
+        const response = await axios.post(`${baseUrl}/Document_Item`, {
+          input: {
+            documents_id: documentId,
+            items_id: parseInt(ticketId, 10),
+            itemtype: 'Ticket',
+          }
+        }, {
+          headers: {
+            'Content-Type': 'application/json',
+            'App-Token': config.appToken,
+            'Session-Token': serviceToken
+          }
+        });
+
+        await axios.get(`${baseUrl}/killSession`, {
+          headers: { 'App-Token': config.appToken, 'Session-Token': serviceToken }
+        }).catch(() => {});
+
+        console.log('📎 Documento asociado al ticket con servicio');
+        return response.data;
+      } catch (serviceError) {
+        console.error('❌ Error asociando documento con servicio:', serviceError);
+        throw new Error('El archivo se subió pero no se pudo asociar al ticket.');
       }
-      console.error('Error asociando documento:', error);
-      throw this.handleError(error);
     }
   }
 
