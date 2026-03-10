@@ -18,13 +18,18 @@ import {
   KeyRound,
   Bot,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function Layout({ children }) {
   const { user, role, logout, isAdmin, isTechnician, isClient } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Cerrar sidebar automaticamente al cambiar de ruta
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname, location.search]);
 
   // Limpiar nombre de entidad: "Root entity > Natura (tree structure)" -> "Natura"
   const getCleanEntityName = () => {

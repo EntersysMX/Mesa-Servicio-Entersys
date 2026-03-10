@@ -235,8 +235,9 @@ export default function TicketList() {
   }, [tickets, technicians, groups]);
 
   // Función principal de búsqueda
-  const fetchTickets = useCallback(async () => {
-    setLoading(true);
+  const fetchTickets = useCallback(async (isBackground = false) => {
+    // Solo spinner completo en primera carga, no en refreshes
+    if (!isBackground || tickets.length === 0) setLoading(true);
     setError(null);
 
     try {
@@ -333,21 +334,27 @@ export default function TicketList() {
       setTickets(ticketData);
       setTotalCount(entityFilter !== 'all' ? ticketData.length : (result.totalcount || ticketData.length));
     } catch (err) {
-      setError(err.message);
-      setTickets([]);
+      if (!isBackground) {
+        setError(err.message);
+        setTickets([]);
+      }
     } finally {
       setLoading(false);
     }
   }, [page, assignmentFilter, statusFilter, priorityFilter, originFilter, technicianFilter, entityFilter, dateFromFilter, dateToFilter, searchTerm, userId]);
 
-  // Efecto para cargar tickets
+  // Efecto para cargar tickets + auto-refresh cada 30s
   useEffect(() => {
-    fetchTickets();
+    fetchTickets(false);
+    const interval = setInterval(() => fetchTickets(true), 30000);
+    return () => clearInterval(interval);
   }, [fetchTickets]);
 
-  // Efecto para cargar estadísticas (solo al montar y al refrescar)
+  // Efecto para cargar estadísticas + auto-refresh
   useEffect(() => {
     fetchStats();
+    const interval = setInterval(fetchStats, 30000);
+    return () => clearInterval(interval);
   }, [fetchStats]);
 
   // Actualizar URL params
@@ -620,7 +627,7 @@ export default function TicketList() {
         </div>
         <div className="header-actions">
           <button
-            onClick={() => { fetchTickets(); fetchStats(); }}
+            onClick={() => { fetchTickets(false); fetchStats(); }}
             className="btn btn-icon"
             title="Actualizar"
           >

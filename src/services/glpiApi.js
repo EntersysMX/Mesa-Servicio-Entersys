@@ -20,6 +20,17 @@ const getConfig = () => {
 
 const API_PATH = '/api.php/v1';
 
+// Cache con TTL para datos que no cambian frecuentemente
+const CACHE_TTL = {
+  technicians: 5 * 60 * 1000,      // 5 minutos
+  groups: 5 * 60 * 1000,            // 5 minutos
+  categories: 10 * 60 * 1000,       // 10 minutos
+  entities: 10 * 60 * 1000,         // 10 minutos
+  groupTechniciansMap: 5 * 60 * 1000, // 5 minutos
+  projects: 5 * 60 * 1000,          // 5 minutos
+  ticketStats: 15 * 1000,           // 15 segundos (cambia seguido)
+};
+
 class GlpiApiService {
   constructor() {
     const config = getConfig();
@@ -27,6 +38,7 @@ class GlpiApiService {
     this.sessionToken = null;
     this.userToken = config.userToken;
     this.appToken = config.appToken;
+    this._cache = {};
 
     console.log('GLPI API Config:', {
       baseUrl: this.baseUrl,
@@ -51,6 +63,25 @@ class GlpiApiService {
       }
       return reqConfig;
     });
+  }
+
+  // Obtener del cache si no ha expirado
+  _getCache(key) {
+    const entry = this._cache[key];
+    if (entry && Date.now() - entry.timestamp < entry.ttl) {
+      return entry.data;
+    }
+    return null;
+  }
+
+  // Guardar en cache
+  _setCache(key, data, ttl) {
+    this._cache[key] = { data, timestamp: Date.now(), ttl };
+  }
+
+  // Limpiar cache (al cerrar sesion)
+  _clearCache() {
+    this._cache = {};
   }
 
   // Autenticación
@@ -89,6 +120,7 @@ class GlpiApiService {
     try {
       await this.api.get('/killSession');
       this.sessionToken = null;
+      this._clearCache();
       localStorage.removeItem('glpi_session_token');
     } catch (error) {
       throw this.handleError(error);
@@ -646,8 +678,13 @@ class GlpiApiService {
 
   // Categorías - usa sesión de servicio si falla con la del usuario
   async getCategories(params = {}) {
+    const cacheKey = 'categories';
+    const cached = this._getCache(cacheKey);
+    if (cached) return cached;
+
     try {
       const result = await this.getItems('ITILCategory', params);
+      this._setCache(cacheKey, result, CACHE_TTL.categories);
       return result;
     } catch (error) {
       // Si falla por permisos, intentar con sesión de servicio
@@ -709,12 +746,24 @@ class GlpiApiService {
 
   // Entidades
   async getEntities(params = {}) {
-    return this.getItems('Entity', params);
+    const cacheKey = 'entities';
+    const cached = this._getCache(cacheKey);
+    if (cached) return cached;
+
+    const result = await this.getItems('Entity', params);
+    this._setCache(cacheKey, result, CACHE_TTL.entities);
+    return result;
   }
 
   // Grupos
   async getGroups(params = {}) {
-    return this.getItems('Group', { range: '0-100', ...params });
+    const cacheKey = 'groups';
+    const cached = this._getCache(cacheKey);
+    if (cached) return cached;
+
+    const result = await this.getItems('Group', { range: '0-100', ...params });
+    this._setCache(cacheKey, result, CACHE_TTL.groups);
+    return result;
   }
 
   // Ubicaciones
@@ -724,8 +773,13 @@ class GlpiApiService {
 
   // Proyectos - usa sesión de servicio si falla con la del usuario
   async getProjects(params = {}) {
+    const cacheKey = 'projects';
+    const cached = this._getCache(cacheKey);
+    if (cached) return cached;
+
     try {
       const result = await this.getItems('Project', { range: '0-100', expand_dropdowns: true, ...params });
+      this._setCache(cacheKey, result, CACHE_TTL.projects);
       return result;
     } catch (error) {
       // Si falla por permisos, intentar con sesión de servicio
@@ -806,6 +860,9 @@ class GlpiApiService {
 
   // Técnicos - Obtener usuarios que pueden ser asignados a tickets
   async getTechnicians(params = {}) {
+    const cached = this._getCache('technicians');
+    if (cached) return cached;
+
     try {
       console.log('=== OBTENIENDO TÉCNICOS ===');
 
@@ -880,6 +937,7 @@ class GlpiApiService {
       console.log(`✅ Técnicos disponibles: ${technicians.length}`);
       technicians.forEach(t => console.log(`   - ${t.name || t.realname} (ID:${t.id})`));
 
+      this._setCache('technicians', technicians, CACHE_TTL.technicians);
       return technicians;
 
     } catch (error) {
@@ -934,6 +992,10 @@ class GlpiApiService {
 
   // Obtener mapeo de grupos a técnicos
   async getGroupTechniciansMap() {
+    const cacheKey = 'groupTechniciansMap';
+    const cached = this._getCache(cacheKey);
+    if (cached) return cached;
+
     try {
       console.log('🗺️ Cargando mapeo de grupos-técnicos...');
 
@@ -966,6 +1028,7 @@ class GlpiApiService {
       });
 
       console.log('✅ Mapeo de grupos cargado:', JSON.stringify(groupMap));
+      this._setCache(cacheKey, groupMap, CACHE_TTL.groupTechniciansMap);
       return groupMap;
     } catch (error) {
       console.error('Error obteniendo mapeo de grupos:', error);
@@ -1030,6 +1093,9 @@ class GlpiApiService {
 
   // Estadísticas básicas
   async getTicketStats() {
+    const cached = this._getCache('ticketStats');
+    if (cached) return cached;
+
     try {
       const [newTickets, inProgress, solved, closed] = await Promise.all([
         this.search('Ticket', [{ field: 12, searchtype: 'equals', value: 1 }], { range: '0-0' }),
@@ -1038,12 +1104,14 @@ class GlpiApiService {
         this.search('Ticket', [{ field: 12, searchtype: 'equals', value: 6 }], { range: '0-0' }),
       ]);
 
-      return {
+      const stats = {
         new: newTickets.totalcount || 0,
         inProgress: inProgress.totalcount || 0,
         solved: solved.totalcount || 0,
         closed: closed.totalcount || 0,
       };
+      this._setCache('ticketStats', stats, CACHE_TTL.ticketStats);
+      return stats;
     } catch (error) {
       throw this.handleError(error);
     }

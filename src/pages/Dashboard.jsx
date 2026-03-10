@@ -32,12 +32,15 @@ export default function Dashboard() {
   const [recentTickets, setRecentTickets] = useState([]);
   const [urgentTickets, setUrgentTickets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
   const userId = user?.glpiID;
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  const fetchData = useCallback(async (isBackground = false) => {
+    // Solo mostrar spinner completo en la primera carga
+    if (!isBackground) setLoading(true);
+    else setRefreshing(true);
     setError(null);
     try {
       // Estadísticas globales
@@ -93,16 +96,17 @@ export default function Dashboard() {
         setRecentTickets(Array.isArray(allTickets) ? allTickets : []);
       }
     } catch (err) {
-      setError(err.message);
+      if (!isBackground) setError(err.message);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [isAdmin, isTechnician, isClient, userId]);
 
   useEffect(() => {
-    fetchData();
-    // Auto-refresh cada 30 segundos
-    const interval = setInterval(fetchData, 30000);
+    fetchData(false);
+    // Auto-refresh en background cada 30 segundos
+    const interval = setInterval(() => fetchData(true), 30000);
     return () => clearInterval(interval);
   }, [fetchData]);
 
@@ -164,12 +168,12 @@ export default function Dashboard() {
           </div>
           <div className="header-actions">
             <button
-              onClick={fetchData}
+              onClick={() => fetchData(false)}
               className="btn btn-icon"
               title="Actualizar"
               disabled={loading}
             >
-              <RefreshCw size={18} className={loading ? 'spinning' : ''} />
+              <RefreshCw size={18} className={loading || refreshing ? 'spinning' : ''} />
             </button>
             <Link to="/tickets/new" className="btn btn-primary">
               <TicketPlus size={18} />

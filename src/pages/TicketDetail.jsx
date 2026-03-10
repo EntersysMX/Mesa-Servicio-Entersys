@@ -122,9 +122,10 @@ export default function TicketDetail() {
   const canResolve = isAdmin || isAssignedToMe;
 
   // Cargar ticket y datos relacionados
-  const fetchTicket = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const fetchTicket = useCallback(async (isBackground = false) => {
+    // Solo spinner completo en primera carga
+    if (!isBackground || !ticket) setLoading(true);
+    if (!isBackground) setError(null);
     try {
       const [ticketData, followupsData] = await Promise.all([
         glpiApi.getTicket(id),
@@ -203,7 +204,7 @@ export default function TicketDetail() {
         }
       }
     } catch (err) {
-      setError(err.message);
+      if (!isBackground) setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -284,8 +285,11 @@ export default function TicketDetail() {
   }, [canAssign]);
 
   useEffect(() => {
-    fetchTicket();
+    fetchTicket(false);
     fetchAssignmentOptions();
+    // Auto-refresh en background cada 20 segundos para ver cambios en tiempo real
+    const interval = setInterval(() => fetchTicket(true), 20000);
+    return () => clearInterval(interval);
   }, [fetchTicket, fetchAssignmentOptions]);
 
   // Limpiar mensajes después de un tiempo
@@ -707,7 +711,7 @@ Mesa de Ayuda - Entersys
           )}
         </div>
         <div className="header-actions">
-          <button onClick={fetchTicket} className="btn btn-icon" title="Actualizar">
+          <button onClick={() => fetchTicket(false)} className="btn btn-icon" title="Actualizar">
             <RefreshCw size={18} className={loading ? 'spinning' : ''} />
           </button>
           {canEdit && (
