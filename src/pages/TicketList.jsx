@@ -343,18 +343,14 @@ export default function TicketList() {
     }
   }, [page, assignmentFilter, statusFilter, priorityFilter, originFilter, technicianFilter, entityFilter, dateFromFilter, dateToFilter, searchTerm, userId]);
 
-  // Efecto para cargar tickets + auto-refresh cada 30s
+  // Cargar tickets al entrar a la pagina
   useEffect(() => {
     fetchTickets(false);
-    const interval = setInterval(() => fetchTickets(true), 30000);
-    return () => clearInterval(interval);
   }, [fetchTickets]);
 
-  // Efecto para cargar estadísticas + auto-refresh
+  // Cargar estadísticas al entrar a la pagina
   useEffect(() => {
     fetchStats();
-    const interval = setInterval(fetchStats, 30000);
-    return () => clearInterval(interval);
   }, [fetchStats]);
 
   // Actualizar URL params

@@ -287,9 +287,6 @@ export default function TicketDetail() {
   useEffect(() => {
     fetchTicket(false);
     fetchAssignmentOptions();
-    // Auto-refresh en background cada 20 segundos para ver cambios en tiempo real
-    const interval = setInterval(() => fetchTicket(true), 20000);
-    return () => clearInterval(interval);
   }, [fetchTicket, fetchAssignmentOptions]);
 
   // Limpiar mensajes después de un tiempo

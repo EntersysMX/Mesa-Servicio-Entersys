@@ -105,9 +105,6 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchData(false);
-    // Auto-refresh en background cada 30 segundos
-    const interval = setInterval(() => fetchData(true), 30000);
-    return () => clearInterval(interval);
   }, [fetchData]);
 
   const getStatusInfo = (status) => {
