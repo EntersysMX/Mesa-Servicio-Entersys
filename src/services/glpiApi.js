@@ -583,27 +583,114 @@ class GlpiApiService {
 
       return documents.filter(d => d !== null);
     } catch (error) {
-      // Si es error de permisos, mostrar mensaje más claro
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        console.log('⚠️ Sin permisos para ver documentos. Configurar en GLPI: Perfiles → Self-Service → Gestión → Documentos');
-      } else {
-        console.log('Error obteniendo documentos:', error.message);
-      }
+      console.log('⚠️ Sin permisos para ver documentos, usando sesión de servicio...');
+      return this.getTicketDocumentsWithServiceSession(ticketId);
+    }
+  }
+
+  // Obtener documentos de un ticket con sesión de servicio (fallback para clientes)
+  async getTicketDocumentsWithServiceSession(ticketId) {
+    try {
+      const config = getConfig();
+      const baseUrl = `${config.glpiUrl}/apirest.php`;
+      const credentials = btoa('glpi:glpi');
+
+      const initRes = await axios.get(`${baseUrl}/initSession`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'App-Token': config.appToken,
+          'Authorization': `Basic ${credentials}`
+        }
+      });
+      const serviceToken = initRes.data.session_token;
+
+      const response = await axios.get(`${baseUrl}/Ticket/${ticketId}/Document_Item`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'App-Token': config.appToken,
+          'Session-Token': serviceToken
+        }
+      });
+      const docItems = response.data || [];
+
+      const documents = await Promise.all(
+        docItems.map(async (item) => {
+          try {
+            const doc = await axios.get(`${baseUrl}/Document/${item.documents_id}`, {
+              headers: {
+                'Content-Type': 'application/json',
+                'App-Token': config.appToken,
+                'Session-Token': serviceToken
+              }
+            });
+            return {
+              ...doc.data,
+              link_id: item.id,
+            };
+          } catch (e) {
+            return null;
+          }
+        })
+      );
+
+      // Cerrar sesión de servicio
+      await axios.get(`${baseUrl}/killSession`, {
+        headers: { 'App-Token': config.appToken, 'Session-Token': serviceToken }
+      }).catch(() => {});
+
+      return documents.filter(d => d !== null);
+    } catch (error) {
+      console.error('❌ Error obteniendo documentos con servicio:', error.message);
       return [];
     }
   }
 
-  // Verificar si el usuario tiene permisos para documentos
-  async canAccessDocuments() {
+  // Descargar documento con autenticación
+  async downloadDocument(documentId) {
     try {
-      await this.api.get('/Document', { params: { range: '0-1' } });
-      return true;
+      const response = await this.api.get(`/Document/${documentId}`, {
+        responseType: 'blob',
+        headers: { 'Accept': 'application/octet-stream' }
+      });
+      return response.data;
     } catch (error) {
-      return false;
+      // Fallback con sesión de servicio
+      try {
+        const config = getConfig();
+        const baseUrl = `${config.glpiUrl}/apirest.php`;
+        const credentials = btoa('glpi:glpi');
+
+        const initRes = await axios.get(`${baseUrl}/initSession`, {
+          headers: {
+            'Content-Type': 'application/json',
+            'App-Token': config.appToken,
+            'Authorization': `Basic ${credentials}`
+          }
+        });
+        const serviceToken = initRes.data.session_token;
+
+        const response = await axios.get(`${baseUrl}/Document/${documentId}`, {
+          responseType: 'blob',
+          headers: {
+            'Accept': 'application/octet-stream',
+            'App-Token': config.appToken,
+            'Session-Token': serviceToken
+          }
+        });
+
+        await axios.get(`${baseUrl}/killSession`, {
+          headers: { 'App-Token': config.appToken, 'Session-Token': serviceToken }
+        }).catch(() => {});
+
+        return response.data;
+      } catch (serviceError) {
+        console.error('❌ Error descargando documento:', serviceError.message);
+        throw new Error('No se pudo descargar el archivo.');
+      }
     }
   }
 
-  // Obtener URL de descarga de documento
+  // Obtener URL de descarga de documento (legacy)
   getDocumentDownloadUrl(documentId) {
     return `${this.baseUrl}/Document/${documentId}`;
   }

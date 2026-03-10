@@ -1002,15 +1002,27 @@ Mesa de Ayuda - Entersys
                           {doc.mime} • {new Date(doc.date_creation).toLocaleDateString('es-MX')}
                         </span>
                       </div>
-                      <a
-                        href={glpiApi.getDocumentDownloadUrl(doc.id)}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        onClick={async () => {
+                          try {
+                            const blob = await glpiApi.downloadDocument(doc.id);
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = doc.filename || doc.name || 'archivo';
+                            document.body.appendChild(a);
+                            a.click();
+                            window.URL.revokeObjectURL(url);
+                            a.remove();
+                          } catch (e) {
+                            console.error('Error descargando:', e);
+                          }
+                        }}
                         className="btn btn-sm btn-secondary download-btn"
                         title="Descargar archivo"
                       >
                         <Download size={14} />
-                      </a>
+                      </button>
                     </div>
                   ))}
                 </div>
