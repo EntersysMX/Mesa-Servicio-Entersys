@@ -3414,12 +3414,82 @@ body {
   flex-shrink: 0;
 }
 
-/* Preview de imágenes (opcional) */
-.image-preview {
-  max-width: 100px;
-  max-height: 60px;
+/* Thumbnail de imagen en documentos */
+.doc-thumbnail {
+  width: 48px;
+  height: 48px;
   object-fit: cover;
   border-radius: var(--radius-sm);
+  cursor: pointer;
+  flex-shrink: 0;
+  border: 1px solid var(--border-color);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.doc-thumbnail:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+/* Modal de previsualización de imagen */
+.image-preview-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+}
+
+.image-preview-modal {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+  background: var(--bg-primary);
+  border-radius: var(--radius);
+  padding: 8px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+
+.image-preview-modal img {
+  max-width: 100%;
+  max-height: 80vh;
+  display: block;
+  border-radius: var(--radius-sm);
+}
+
+.image-preview-close {
+  position: absolute;
+  top: -12px;
+  right: -12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-primary);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.image-preview-close:hover {
+  background: var(--danger);
+  color: white;
+}
+
+.image-preview-name {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 8px 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ========================================

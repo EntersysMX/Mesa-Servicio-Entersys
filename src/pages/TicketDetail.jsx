@@ -107,6 +107,10 @@ export default function TicketDetail() {
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [dragActive, setDragActive] = useState(false);
 
+  // Estado para previsualización de imágenes
+  const [previewImage, setPreviewImage] = useState(null);
+  const [docBlobUrls, setDocBlobUrls] = useState({});
+
   // Estado para SLA
   const [slaInfo, setSlaInfo] = useState(null);
 
@@ -176,6 +180,18 @@ export default function TicketDetail() {
       // Cargar documentos del ticket
       const docs = await glpiApi.getTicketDocuments(id);
       setTicketDocuments(docs);
+
+      // Generar previews para imágenes
+      const imageDocs = docs.filter(d => d.mime?.startsWith('image/'));
+      for (const doc of imageDocs) {
+        try {
+          const blob = await glpiApi.downloadDocument(doc.id);
+          const url = window.URL.createObjectURL(blob);
+          setDocBlobUrls(prev => ({ ...prev, [doc.id]: url }));
+        } catch (e) {
+          console.log('No se pudo cargar preview de:', doc.name);
+        }
+      }
 
       // Cargar información de SLA
       const sla = await glpiApi.getTicketSLA(id);
@@ -257,6 +273,17 @@ export default function TicketDetail() {
       // Recargar documentos
       const docs = await glpiApi.getTicketDocuments(id);
       setTicketDocuments(docs);
+      // Generar previews para las nuevas imágenes
+      const imageDocs = docs.filter(d => d.mime?.startsWith('image/'));
+      for (const doc of imageDocs) {
+        if (!docBlobUrls[doc.id]) {
+          try {
+            const blob = await glpiApi.downloadDocument(doc.id);
+            const url = window.URL.createObjectURL(blob);
+            setDocBlobUrls(prev => ({ ...prev, [doc.id]: url }));
+          } catch (e) {}
+        }
+      }
       setSuccess('Archivos subidos correctamente');
     } catch (err) {
       setError('Error al subir archivos: ' + err.message);
@@ -991,7 +1018,14 @@ Mesa de Ayuda - Entersys
                 <div className="documents-list">
                   {ticketDocuments.map((doc) => (
                     <div key={doc.id} className="document-item">
-                      {doc.mime?.startsWith('image/') ? (
+                      {doc.mime?.startsWith('image/') && docBlobUrls[doc.id] ? (
+                        <img
+                          src={docBlobUrls[doc.id]}
+                          alt={doc.name || doc.filename}
+                          className="doc-thumbnail"
+                          onClick={() => setPreviewImage({ url: docBlobUrls[doc.id], name: doc.name || doc.filename })}
+                        />
+                      ) : doc.mime?.startsWith('image/') ? (
                         <Image size={18} className="doc-icon" />
                       ) : (
                         <File size={18} className="doc-icon" />
@@ -1025,6 +1059,19 @@ Mesa de Ayuda - Entersys
                       </button>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* Modal de previsualización de imagen */}
+            {previewImage && (
+              <div className="image-preview-overlay" onClick={() => setPreviewImage(null)}>
+                <div className="image-preview-modal" onClick={e => e.stopPropagation()}>
+                  <button className="image-preview-close" onClick={() => setPreviewImage(null)}>
+                    <X size={20} />
+                  </button>
+                  <img src={previewImage.url} alt={previewImage.name} />
+                  <p className="image-preview-name">{previewImage.name}</p>
                 </div>
               </div>
             )}
