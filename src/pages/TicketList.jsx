@@ -26,6 +26,7 @@ import {
   Mail,
   Smartphone,
   Globe,
+  Activity,
 } from 'lucide-react';
 
 export default function TicketList() {
@@ -548,7 +549,7 @@ export default function TicketList() {
     const statusMap = {
       1: { label: 'Nuevo', class: 'status-new', icon: AlertCircle },
       2: { label: 'Asignado', class: 'status-assigned', icon: Clock },
-      3: { label: 'Planificado', class: 'status-planned', icon: Clock },
+      3: { label: 'En Atención', class: 'status-planned', icon: Activity },
       4: { label: 'En espera', class: 'status-waiting', icon: Clock },
       5: { label: 'Resuelto', class: 'status-solved', icon: CheckCircle },
       6: { label: 'Cerrado', class: 'status-closed', icon: CheckCircle },

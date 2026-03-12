@@ -428,7 +428,7 @@ Mesa de Ayuda - Entersys
       }
       if (editData.status !== ticket.status) {
         const statusNames = {
-          1: 'Nuevo', 2: 'En curso (asignado)', 3: 'En curso (planificado)',
+          1: 'Nuevo', 2: 'En curso (asignado)', 3: 'En Atención',
           4: 'En espera', 5: 'Resuelto', 6: 'Cerrado',
         };
         changes.push(`Estado: "${statusNames[ticket.status]}" → "${statusNames[editData.status]}"`);
@@ -568,7 +568,7 @@ Mesa de Ayuda - Entersys
       const statusNames = {
         1: 'Nuevo',
         2: 'En curso (asignado)',
-        3: 'En curso (planificado)',
+        3: 'En Atención',
         4: 'En espera',
         5: 'Resuelto',
         6: 'Cerrado',
@@ -615,7 +615,7 @@ Mesa de Ayuda - Entersys
     const statusMap = {
       1: { label: 'Nuevo', class: 'status-new' },
       2: { label: 'En curso (asignado)', class: 'status-assigned' },
-      3: { label: 'En curso (planificado)', class: 'status-planned' },
+      3: { label: 'En Atención', class: 'status-planned' },
       4: { label: 'En espera', class: 'status-waiting' },
       5: { label: 'Resuelto', class: 'status-solved' },
       6: { label: 'Cerrado', class: 'status-closed' },
@@ -730,6 +730,17 @@ Mesa de Ayuda - Entersys
           {/* Botones rápidos de cambio de estado */}
           {canEdit && (
             <>
+              {ticket.status !== 3 && (
+                <button
+                  onClick={() => handleQuickStatusChange(3)}
+                  className="btn btn-sm btn-info"
+                  disabled={submitting}
+                  title="Marcar como en atención"
+                >
+                  <Activity size={14} />
+                  En Atención
+                </button>
+              )}
               {ticket.status !== 2 && (
                 <button
                   onClick={() => handleQuickStatusChange(2)}
@@ -854,7 +865,7 @@ Mesa de Ayuda - Entersys
                       >
                         <option value={1}>Nuevo</option>
                         <option value={2}>En curso (asignado)</option>
-                        <option value={3}>En curso (planificado)</option>
+                        <option value={3}>En Atención</option>
                         <option value={4}>En espera</option>
                         <option value={5}>Resuelto</option>
                         <option value={6}>Cerrado</option>
@@ -1237,6 +1248,16 @@ Mesa de Ayuda - Entersys
             <div className="sidebar-section">
               <h4>Acciones Rápidas</h4>
               <div className="quick-actions-grid">
+                {ticket.status !== 3 && (
+                  <button
+                    onClick={() => handleQuickStatusChange(3)}
+                    className="btn btn-sm btn-info"
+                    disabled={submitting}
+                  >
+                    <Activity size={14} />
+                    En Atención
+                  </button>
+                )}
                 {ticket.status !== 2 && (
                   <button
                     onClick={() => handleQuickStatusChange(2)}

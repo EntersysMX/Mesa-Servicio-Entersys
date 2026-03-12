@@ -2209,6 +2209,24 @@ body {
   background: #059669;
 }
 
+.btn-info {
+  background: #3b82f6;
+  color: white;
+}
+
+.btn-info:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.btn-warning {
+  background: #f59e0b;
+  color: white;
+}
+
+.btn-warning:hover:not(:disabled) {
+  background: #d97706;
+}
+
 /* Responsive Ticket Detail */
 @media (max-width: 1024px) {
   .ticket-detail-layout {

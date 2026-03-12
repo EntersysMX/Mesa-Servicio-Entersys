@@ -111,7 +111,7 @@ export default function Dashboard() {
     const statusMap = {
       1: { label: 'Nuevo', class: 'status-new', icon: AlertCircle },
       2: { label: 'En curso', class: 'status-assigned', icon: Clock },
-      3: { label: 'Planificado', class: 'status-planned', icon: Calendar },
+      3: { label: 'En Atención', class: 'status-planned', icon: Activity },
       4: { label: 'En espera', class: 'status-waiting', icon: Timer },
       5: { label: 'Resuelto', class: 'status-solved', icon: CheckCircle },
       6: { label: 'Cerrado', class: 'status-closed', icon: XCircle },
