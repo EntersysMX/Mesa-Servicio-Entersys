@@ -181,16 +181,17 @@ export default function TicketDetail() {
       const docs = await glpiApi.getTicketDocuments(id);
       setTicketDocuments(docs);
 
-      // Generar previews para imágenes
+      // Generar previews para imágenes (solo las que no tienen preview ya)
       const imageDocs = docs.filter(d => d.mime?.startsWith('image/'));
       for (const doc of imageDocs) {
-        try {
-          const blob = await glpiApi.downloadDocument(doc.id);
-          const url = window.URL.createObjectURL(blob);
-          setDocBlobUrls(prev => ({ ...prev, [doc.id]: url }));
-        } catch (e) {
-          console.log('No se pudo cargar preview de:', doc.name);
-        }
+        setDocBlobUrls(prev => {
+          if (prev[doc.id]) return prev; // Ya tiene preview, no recargar
+          glpiApi.downloadDocument(doc.id).then(blob => {
+            const url = window.URL.createObjectURL(blob);
+            setDocBlobUrls(p => ({ ...p, [doc.id]: url }));
+          }).catch(() => {});
+          return prev;
+        });
       }
 
       // Cargar información de SLA
@@ -276,13 +277,14 @@ export default function TicketDetail() {
       // Generar previews para las nuevas imágenes
       const imageDocs = docs.filter(d => d.mime?.startsWith('image/'));
       for (const doc of imageDocs) {
-        if (!docBlobUrls[doc.id]) {
-          try {
-            const blob = await glpiApi.downloadDocument(doc.id);
+        setDocBlobUrls(prev => {
+          if (prev[doc.id]) return prev;
+          glpiApi.downloadDocument(doc.id).then(blob => {
             const url = window.URL.createObjectURL(blob);
-            setDocBlobUrls(prev => ({ ...prev, [doc.id]: url }));
-          } catch (e) {}
-        }
+            setDocBlobUrls(p => ({ ...p, [doc.id]: url }));
+          }).catch(() => {});
+          return prev;
+        });
       }
       setSuccess('Archivos subidos correctamente');
     } catch (err) {

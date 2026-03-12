@@ -645,48 +645,44 @@ class GlpiApiService {
     }
   }
 
-  // Descargar documento con autenticación
+  // Descargar documento con autenticación (siempre usa sesión de servicio para evitar JSON metadata)
   async downloadDocument(documentId) {
     try {
-      const response = await this.api.get(`/Document/${documentId}`, {
-        responseType: 'blob',
-        headers: { 'Accept': 'application/octet-stream' }
+      const config = getConfig();
+      const baseUrl = `${config.glpiUrl}/apirest.php`;
+      const credentials = btoa('glpi:glpi');
+
+      const initRes = await axios.get(`${baseUrl}/initSession`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'App-Token': config.appToken,
+          'Authorization': `Basic ${credentials}`
+        }
       });
+      const serviceToken = initRes.data.session_token;
+
+      const response = await axios.get(`${baseUrl}/Document/${documentId}`, {
+        responseType: 'blob',
+        headers: {
+          'Accept': 'application/octet-stream',
+          'App-Token': config.appToken,
+          'Session-Token': serviceToken
+        }
+      });
+
+      await axios.get(`${baseUrl}/killSession`, {
+        headers: { 'App-Token': config.appToken, 'Session-Token': serviceToken }
+      }).catch(() => {});
+
+      // Verificar que el blob no sea JSON (error de API)
+      if (response.data.type === 'application/json') {
+        throw new Error('API retornó JSON en vez de archivo');
+      }
+
       return response.data;
     } catch (error) {
-      // Fallback con sesión de servicio
-      try {
-        const config = getConfig();
-        const baseUrl = `${config.glpiUrl}/apirest.php`;
-        const credentials = btoa('glpi:glpi');
-
-        const initRes = await axios.get(`${baseUrl}/initSession`, {
-          headers: {
-            'Content-Type': 'application/json',
-            'App-Token': config.appToken,
-            'Authorization': `Basic ${credentials}`
-          }
-        });
-        const serviceToken = initRes.data.session_token;
-
-        const response = await axios.get(`${baseUrl}/Document/${documentId}`, {
-          responseType: 'blob',
-          headers: {
-            'Accept': 'application/octet-stream',
-            'App-Token': config.appToken,
-            'Session-Token': serviceToken
-          }
-        });
-
-        await axios.get(`${baseUrl}/killSession`, {
-          headers: { 'App-Token': config.appToken, 'Session-Token': serviceToken }
-        }).catch(() => {});
-
-        return response.data;
-      } catch (serviceError) {
-        console.error('❌ Error descargando documento:', serviceError.message);
-        throw new Error('No se pudo descargar el archivo.');
-      }
+      console.error('❌ Error descargando documento:', error.message);
+      throw new Error('No se pudo descargar el archivo.');
     }
   }
 
