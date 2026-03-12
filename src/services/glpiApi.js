@@ -561,35 +561,8 @@ class GlpiApiService {
   }
 
   // Obtener documentos de un ticket
+  // Obtener documentos de un ticket (siempre usa sesión de servicio para obtener metadata completa)
   async getTicketDocuments(ticketId) {
-    try {
-      const response = await this.api.get(`/Ticket/${ticketId}/Document_Item`);
-      const docItems = response.data || [];
-
-      // Obtener detalles de cada documento
-      const documents = await Promise.all(
-        docItems.map(async (item) => {
-          try {
-            const doc = await this.api.get(`/Document/${item.documents_id}`);
-            return {
-              ...doc.data,
-              link_id: item.id,
-            };
-          } catch (e) {
-            return null;
-          }
-        })
-      );
-
-      return documents.filter(d => d !== null);
-    } catch (error) {
-      console.log('⚠️ Sin permisos para ver documentos, usando sesión de servicio...');
-      return this.getTicketDocumentsWithServiceSession(ticketId);
-    }
-  }
-
-  // Obtener documentos de un ticket con sesión de servicio (fallback para clientes)
-  async getTicketDocumentsWithServiceSession(ticketId) {
     try {
       const config = getConfig();
       const baseUrl = `${config.glpiUrl}/apirest.php`;
@@ -640,7 +613,7 @@ class GlpiApiService {
 
       return documents.filter(d => d !== null);
     } catch (error) {
-      console.error('❌ Error obteniendo documentos con servicio:', error.message);
+      console.error('❌ Error obteniendo documentos:', error.message);
       return [];
     }
   }
