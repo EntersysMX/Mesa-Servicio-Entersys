@@ -727,6 +727,44 @@ Mesa de Ayuda - Entersys
           )}
         </div>
         <div className="header-actions">
+          {/* Botones rápidos de cambio de estado */}
+          {canEdit && (
+            <>
+              {ticket.status !== 2 && (
+                <button
+                  onClick={() => handleQuickStatusChange(2)}
+                  className="btn btn-sm btn-secondary"
+                  disabled={submitting}
+                  title="Poner en curso"
+                >
+                  <Clock size={14} />
+                  En Curso
+                </button>
+              )}
+              {ticket.status !== 4 && (
+                <button
+                  onClick={() => handleQuickStatusChange(4)}
+                  className="btn btn-sm btn-warning"
+                  disabled={submitting}
+                  title="Poner en espera"
+                >
+                  <Clock size={14} />
+                  En Espera
+                </button>
+              )}
+              {ticket.status !== 5 && canResolve && (
+                <button
+                  onClick={() => handleQuickStatusChange(5)}
+                  className="btn btn-sm btn-success"
+                  disabled={submitting}
+                  title="Marcar como resuelto"
+                >
+                  <CheckCircle size={14} />
+                  Resolver
+                </button>
+              )}
+            </>
+          )}
           <button onClick={() => fetchTicket(false)} className="btn btn-icon" title="Actualizar">
             <RefreshCw size={18} className={loading ? 'spinning' : ''} />
           </button>
