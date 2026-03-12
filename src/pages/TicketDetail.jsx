@@ -181,18 +181,13 @@ export default function TicketDetail() {
       const docs = await glpiApi.getTicketDocuments(id);
       setTicketDocuments(docs);
 
-      // Generar previews para imágenes (solo las que no tienen preview ya)
-      const imageDocs = docs.filter(d => d.mime?.startsWith('image/'));
-      for (const doc of imageDocs) {
-        setDocBlobUrls(prev => {
-          if (prev[doc.id]) return prev; // Ya tiene preview, no recargar
-          glpiApi.downloadDocument(doc.id).then(blob => {
-            const url = window.URL.createObjectURL(blob);
-            setDocBlobUrls(p => ({ ...p, [doc.id]: url }));
-          }).catch(() => {});
-          return prev;
-        });
-      }
+      // Generar previews para imágenes en segundo plano
+      docs.filter(d => d.mime?.startsWith('image/')).forEach(doc => {
+        glpiApi.downloadDocument(doc.id).then(blob => {
+          const url = window.URL.createObjectURL(blob);
+          setDocBlobUrls(prev => ({ ...prev, [doc.id]: url }));
+        }).catch(() => {});
+      });
 
       // Cargar información de SLA
       const sla = await glpiApi.getTicketSLA(id);
@@ -275,17 +270,12 @@ export default function TicketDetail() {
       const docs = await glpiApi.getTicketDocuments(id);
       setTicketDocuments(docs);
       // Generar previews para las nuevas imágenes
-      const imageDocs = docs.filter(d => d.mime?.startsWith('image/'));
-      for (const doc of imageDocs) {
-        setDocBlobUrls(prev => {
-          if (prev[doc.id]) return prev;
-          glpiApi.downloadDocument(doc.id).then(blob => {
-            const url = window.URL.createObjectURL(blob);
-            setDocBlobUrls(p => ({ ...p, [doc.id]: url }));
-          }).catch(() => {});
-          return prev;
-        });
-      }
+      docs.filter(d => d.mime?.startsWith('image/')).forEach(doc => {
+        glpiApi.downloadDocument(doc.id).then(blob => {
+          const url = window.URL.createObjectURL(blob);
+          setDocBlobUrls(prev => ({ ...prev, [doc.id]: url }));
+        }).catch(() => {});
+      });
       setSuccess('Archivos subidos correctamente');
     } catch (err) {
       setError('Error al subir archivos: ' + err.message);

@@ -645,8 +645,22 @@ class GlpiApiService {
     }
   }
 
-  // Descargar documento con autenticación (siempre usa sesión de servicio para evitar JSON metadata)
+  // Descargar documento con autenticación
   async downloadDocument(documentId) {
+    // Intentar con sesión del usuario (funciona para técnicos/admin)
+    try {
+      const response = await this.api.get(`/Document/${documentId}`, {
+        responseType: 'blob',
+        headers: { 'Accept': 'application/octet-stream' }
+      });
+      if (response.data && response.data.type && !response.data.type.includes('json')) {
+        return response.data;
+      }
+    } catch (e) {
+      // Continuar al fallback
+    }
+
+    // Fallback con sesión de servicio (para clientes sin permisos)
     try {
       const config = getConfig();
       const baseUrl = `${config.glpiUrl}/apirest.php`;
@@ -673,11 +687,6 @@ class GlpiApiService {
       await axios.get(`${baseUrl}/killSession`, {
         headers: { 'App-Token': config.appToken, 'Session-Token': serviceToken }
       }).catch(() => {});
-
-      // Verificar que el blob no sea JSON (error de API)
-      if (response.data.type === 'application/json') {
-        throw new Error('API retornó JSON en vez de archivo');
-      }
 
       return response.data;
     } catch (error) {
